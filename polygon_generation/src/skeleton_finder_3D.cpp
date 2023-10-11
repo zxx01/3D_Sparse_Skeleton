@@ -4,15 +4,17 @@
 using namespace Eigen;
 using namespace std;
 
-namespace backward {
-backward::SignalHandling sh;
+namespace backward
+{
+  backward::SignalHandling sh;
 }
 
 SkeletonFinder::SkeletonFinder() {}
 
 SkeletonFinder::~SkeletonFinder() {}
 
-void SkeletonFinder::setParam(ros::NodeHandle &n) {
+void SkeletonFinder::setParam(ros::NodeHandle &n)
+{
   n.param("mapBoundary/x_min", _x_min, -10.0);
   n.param("mapBoundary/x_max", _x_max, 10.0);
   n.param("mapBoundary/y_min", _y_min, -10.0);
@@ -59,43 +61,51 @@ void SkeletonFinder::setParam(ros::NodeHandle &n) {
   n.param("visualize_black_polygon", _visualize_black_polygon, false);
 }
 
-void SkeletonFinder::reset() {
+void SkeletonFinder::reset()
+{
   treeDestruct();
   NodeList.clear();
 }
 
-void SkeletonFinder::setStartPt(Vector3d startPt) {
+void SkeletonFinder::setStartPt(Vector3d startPt)
+{
   NodePtr start = new Node(startPt, NULL);
   initNode(start);
 }
 
-inline double SkeletonFinder::getDis(const NodePtr node1, const NodePtr node2) {
+inline double SkeletonFinder::getDis(const NodePtr node1, const NodePtr node2)
+{
   return sqrt(pow(node1->coord(0) - node2->coord(0), 2) +
               pow(node1->coord(1) - node2->coord(1), 2) +
               pow(node1->coord(2) - node2->coord(2), 2));
 }
 
-inline double SkeletonFinder::getDis(const NodePtr node1, const Vector3d &pt) {
+inline double SkeletonFinder::getDis(const NodePtr node1, const Vector3d &pt)
+{
   return sqrt(pow(node1->coord(0) - pt(0), 2) +
               pow(node1->coord(1) - pt(1), 2) +
               pow(node1->coord(2) - pt(2), 2));
 }
 
-inline double SkeletonFinder::getDis(const Vector3d &p1, const Vector3d &p2) {
+inline double SkeletonFinder::getDis(const Vector3d &p1, const Vector3d &p2)
+{
   return sqrt(pow(p1(0) - p2(0), 2) + pow(p1(1) - p2(1), 2) +
               pow(p1(2) - p2(2), 2));
 }
 
-inline double SkeletonFinder::getDis(const Vector3i &p1, const Vector3i &p2) {
+inline double SkeletonFinder::getDis(const Vector3i &p1, const Vector3i &p2)
+{
   return sqrt((double)(pow(p1(0) - p2(0), 2) + pow(p1(1) - p2(1), 2) +
                        pow(p1(2) - p2(2), 2)));
 }
 
-inline pair<double, int> SkeletonFinder::radiusSearch(Vector3d &search_Pt) {
+inline pair<double, int> SkeletonFinder::radiusSearch(Vector3d &search_Pt)
+{
   double min_dis = radiusSearchOnRawMap(search_Pt);
   int min_dis_node_index = -1;
 
-  if (min_dis < _search_margin) {
+  if (min_dis < _search_margin)
+  {
     pair<double, int> return_pair(min_dis, min_dis_node_index);
     return return_pair;
   }
@@ -110,7 +120,8 @@ inline pair<double, int> SkeletonFinder::radiusSearch(Vector3d &search_Pt) {
   searchPoint.y = search_Pt(1);
   searchPoint.z = search_Pt(2);
 
-  for (NodePtr node : NodeList) {
+  for (NodePtr node : NodeList)
+  {
     if (node->rollbacked || node->isGate)
       continue;
 
@@ -125,7 +136,8 @@ inline pair<double, int> SkeletonFinder::radiusSearch(Vector3d &search_Pt) {
                          pointRadiusSquaredDistanceForRawMap);
     double radius = sqrt(pointRadiusSquaredDistanceForRawMap[0]);
 
-    if (radius < min_dis) {
+    if (radius < min_dis)
+    {
       min_dis = radius;
       min_dis_node_index = node->index;
     }
@@ -135,7 +147,8 @@ inline pair<double, int> SkeletonFinder::radiusSearch(Vector3d &search_Pt) {
   return return_pair;
 }
 
-inline double SkeletonFinder::radiusSearchOnRawMap(Vector3d &search_Pt) {
+inline double SkeletonFinder::radiusSearchOnRawMap(Vector3d &search_Pt)
+{
   //   if (getDis(search_Pt, start_pt) > sample_range + max_radius)
   //     return max_radius - search_margin;
 
@@ -154,9 +167,11 @@ inline double SkeletonFinder::radiusSearchOnRawMap(Vector3d &search_Pt) {
   return radius;
 }
 
-bool SkeletonFinder::collisionCheck(Vector3d search_pt, double threshold) {
+bool SkeletonFinder::collisionCheck(Vector3d search_pt, double threshold)
+{
   // Point cloud map
-  if (_map_representation == 0) {
+  if (_map_representation == 0)
+  {
     double dis = radiusSearchOnRawMap(search_pt);
     if (dis < threshold)
       return true;
@@ -166,12 +181,14 @@ bool SkeletonFinder::collisionCheck(Vector3d search_pt, double threshold) {
   // Won't reach
   return true;
 }
-void SkeletonFinder::recordNode(NodePtr new_node) {
+void SkeletonFinder::recordNode(NodePtr new_node)
+{
   NodeList.push_back(new_node);
   nodes_pcl.points.push_back(pcl::PointXYZ(
       new_node->coord(0), new_node->coord(1), new_node->coord(2)));
 
-  if (!new_node->isGate) {
+  if (!new_node->isGate)
+  {
     int index = center_NodeList.size();
     new_node->index = index;
     center_NodeList.push_back(new_node);
@@ -181,10 +198,12 @@ void SkeletonFinder::recordNode(NodePtr new_node) {
   // ROS_INFO("Current node list size: %i", NodeList.size());
 }
 
-void SkeletonFinder::treeDestruct() {
+void SkeletonFinder::treeDestruct()
+{
   kd_free(kdTree_);
 
-  for (int i = 0; i < int(NodeList.size()); i++) {
+  for (int i = 0; i < int(NodeList.size()); i++)
+  {
     NodePtr ptr = NodeList[i];
     delete ptr;
   }
@@ -192,7 +211,8 @@ void SkeletonFinder::treeDestruct() {
 
 /* ------------------------------------------------------ */
 
-void SkeletonFinder::init(ros::NodeHandle &n) {
+void SkeletonFinder::init(ros::NodeHandle &n)
+{
   /* --------------------- Set params --------------------- */
   setParam(n);
   path_finder.initHandler(n);
@@ -237,7 +257,8 @@ void SkeletonFinder::init(ros::NodeHandle &n) {
 }
 
 void SkeletonFinder::mapCallBack(
-    const sensor_msgs::PointCloud2 &pointcloud_map) {
+    const sensor_msgs::PointCloud2 &pointcloud_map)
+{
   if (callback_executed)
     return;
 
@@ -246,12 +267,14 @@ void SkeletonFinder::mapCallBack(
   pcl::fromROSMsg(pointcloud_map, map_pcl);
   pcl::fromROSMsg(pointcloud_map, raw_map_pcl);
 
-  if (map_pcl.points.size() == 0) {
+  if (map_pcl.points.size() == 0)
+  {
     ROS_WARN("Map pointcloud is empty!");
     return;
   }
   ROS_INFO("map_pcl size: %d", (int)map_pcl.points.size());
-  for (int i = 0; i < (int)map_pcl.points.size(); i++) {
+  for (int i = 0; i < (int)map_pcl.points.size(); i++)
+  {
     if (map_pcl.points[i].z < 0.2)
       continue;
     // if (map_pcl.points[i].z < _truncated_z_low || map_pcl.points[i].z >
@@ -266,7 +289,8 @@ void SkeletonFinder::mapCallBack(
   addBbxToMap(map_pcl);
 
   // Point cloud map
-  if (_map_representation == 0) {
+  if (_map_representation == 0)
+  {
     kdtreeForRawMap.setInputCloud(raw_map_pcl.makeShared());
   }
 
@@ -327,9 +351,12 @@ void SkeletonFinder::mapCallBack(
   begin = ros::Time::now();
   path = findPath(start_query, target_query);
   finish = ros::Time::now();
-  if (path.empty()) {
+  if (path.empty())
+  {
     ROS_ERROR("Find path failed!");
-  } else {
+  }
+  else
+  {
     visPath();
     ROS_WARN("Path finding time: %f", (finish - begin).toSec() * 1000);
     double path_length = path_finder.pathLength(path);
@@ -337,14 +364,16 @@ void SkeletonFinder::mapCallBack(
   }
 }
 
-void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt) {
+void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt)
+{
   genSamplesOnUnitSphere();
   identifyBwFacets();
   setStartPt(startPt);
   // ROS_INFO("Start point set!");
 
   FrontierPtr cur_frontier;
-  while (!pending_frontiers.empty()) {
+  while (!pending_frontiers.empty())
+  {
     ros::Time begin = ros::Time::now();
     // visualization();
     // cout << "Wait for key to expand next frontier..." << endl;
@@ -365,7 +394,8 @@ void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt) {
     // visCurrentFrontier(cur_frontier);
     // getchar();
 
-    if (!cur_frontier->valid) {
+    if (!cur_frontier->valid)
+    {
       // ROS_INFO("Try... Change to use proj_facet_center");
       Eigen::Vector3d prev_proj_center = cur_frontier->proj_center;
       Eigen::Vector3d prev_normal = cur_frontier->outwards_unit_normal;
@@ -375,7 +405,8 @@ void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt) {
       // visCurrentFrontier(cur_frontier);
       // getchar();
 
-      if (!cur_frontier->valid) {
+      if (!cur_frontier->valid)
+      {
         // ROS_INFO("Try... Change to use proj_facet_normal");
         cur_frontier->proj_center = prev_proj_center;
         cur_frontier->outwards_unit_normal =
@@ -385,7 +416,8 @@ void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt) {
         // visCurrentFrontier(cur_frontier);
         // getchar();
 
-        if (!cur_frontier->valid) {
+        if (!cur_frontier->valid)
+        {
           // ROS_INFO("Try... Change to use proj_facet_center &&
           // proj_facet_normal");
 
@@ -397,10 +429,12 @@ void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt) {
           // visCurrentFrontier(cur_frontier);
           // getchar();
 
-          if (!cur_frontier->valid) {
+          if (!cur_frontier->valid)
+          {
             cur_frontier->outwards_unit_normal = prev_normal;
             for (FacetPtr candidate_facet :
-                 cur_frontier->proj_facet->nbhd_facets) {
+                 cur_frontier->proj_facet->nbhd_facets)
+            {
               // ROS_INFO("Try... Change to use nbhd facet_center");
               cur_frontier->proj_center = candidate_facet->center;
               verifyFrontier(cur_frontier);
@@ -408,7 +442,8 @@ void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt) {
               // visCurrentFrontier(cur_frontier);
               // getchar();
 
-              if (!cur_frontier->valid) {
+              if (!cur_frontier->valid)
+              {
                 cur_frontier->outwards_unit_normal =
                     candidate_facet->outwards_unit_normal;
                 verifyFrontier(cur_frontier);
@@ -417,7 +452,9 @@ void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt) {
                 // getchar();
                 if (cur_frontier->valid)
                   break;
-              } else {
+              }
+              else
+              {
                 break;
               }
             }
@@ -428,22 +465,30 @@ void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt) {
     ros::Time finish = ros::Time::now();
     verifyFrontier_timing += (finish - begin).toSec();
     begin = ros::Time::now();
-    if (cur_frontier->valid) {
+    if (cur_frontier->valid)
+    {
       // ROS_INFO_STREAM("Frontier next_node_pos: " <<
       // cur_frontier->next_node_pos.transpose());
-      if (!processFrontier(cur_frontier)) {
+      if (!processFrontier(cur_frontier))
+      {
         // ROS_INFO("processFrontier fails.");
-      } else {
+      }
+      else
+      {
         if (!_visualize_final_result_only)
           visualization();
-        if (_debug_mode) {
+        if (_debug_mode)
+        {
           ROS_WARN("Expanded a valid frontier.");
           visualization();
           getchar();
         }
       }
-    } else {
-      if (_debug_mode) {
+    }
+    else
+    {
+      if (_debug_mode)
+      {
         ROS_WARN("Frontier not valid!");
         // cout << "Frontier center:" << cur_frontier->proj_center.transpose()
         // << endl; visualization(); getchar();
@@ -454,22 +499,26 @@ void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt) {
   }
 }
 
-bool SkeletonFinder::initNode(NodePtr curNodePtr) {
+bool SkeletonFinder::initNode(NodePtr curNodePtr)
+{
   // ROS_ERROR("Start init node");
   ros::Time begin = ros::Time::now();
   ros::Time prev = begin;
   ros::Time curr;
 
-  if (!checkWithinBbx(curNodePtr->coord)) {
+  if (!checkWithinBbx(curNodePtr->coord))
+  {
     return false;
   }
-  if (!checkFloor(curNodePtr)) {
+  if (!checkFloor(curNodePtr))
+  {
     // ROS_ERROR("No floor! Absort.");
     return false;
   }
 
   // if(curNodePtr->coord(1) < -18) return false;
-  if (!curNodePtr->isGate) {
+  if (!curNodePtr->isGate)
+  {
     // ROS_ERROR("Initing node pos:(%f, %f, %f)", curNodePtr->coord(0),
     // curNodePtr->coord(1),
     //           curNodePtr->coord(2));
@@ -480,7 +529,8 @@ bool SkeletonFinder::initNode(NodePtr curNodePtr) {
     genBlackAndWhiteVertices_timing += (curr - prev).toSec();
     prev = curr;
 
-    if (curNodePtr->black_vertices.size() < 4) {
+    if (curNodePtr->black_vertices.size() < 4)
+    {
       // ROS_WARN("Found only %d vertices for the current node!",
       // curNodePtr->black_vertices.size());
       return false;
@@ -493,18 +543,22 @@ bool SkeletonFinder::initNode(NodePtr curNodePtr) {
     prev = curr;
 
     double radius = getNodeRadius(curNodePtr);
-    if (radius < _min_node_radius && curNodePtr->white_vertices.empty()) {
+    if (radius < _min_node_radius && curNodePtr->white_vertices.empty())
+    {
       // ROS_WARN("This node radius is too small!");
       // ROS_WARN("Node radius: %f", radius);
       return false;
     }
 
     // Absorb node inside node
-    if (curNodePtr->seed_frontier != NULL) {
+    if (curNodePtr->seed_frontier != NULL)
+    {
       bool diff_ind = false;
       int ind = curNodePtr->black_vertices.at(0)->collision_node_index;
-      for (VertexPtr v : curNodePtr->black_vertices) {
-        if (v->collision_node_index != ind) {
+      for (VertexPtr v : curNodePtr->black_vertices)
+      {
+        if (v->collision_node_index != ind)
+        {
           diff_ind = true;
           break;
         }
@@ -545,22 +599,27 @@ bool SkeletonFinder::initNode(NodePtr curNodePtr) {
   return true;
 }
 
-void SkeletonFinder::genBlackAndWhiteVertices(NodePtr nodePtr) {
+void SkeletonFinder::genBlackAndWhiteVertices(NodePtr nodePtr)
+{
   // vector<VertexPtr> black;
   vector<Eigen::Vector3d>::iterator it;
-  for (it = sample_directions.begin(); it != sample_directions.end(); it++) {
+  for (it = sample_directions.begin(); it != sample_directions.end(); it++)
+  {
     int index = nodePtr->sampling_directions.size();
     nodePtr->sampling_directions.push_back(vec3((*it)(0), (*it)(1), (*it)(2)));
 
     pair<Vector3d, int> raycast_result =
         raycast(nodePtr->coord, *it, _max_ray_length);
     Eigen::Vector3d newVertex = raycast_result.first;
-    if (raycast_result.second == -2) {
+    if (raycast_result.second == -2)
+    {
       newVertex += (*it) * _max_ray_length;
       VertexPtr new_white_vertex = new Vertex(newVertex, (*it), WHITE);
       new_white_vertex->sampling_dire_index = index;
       nodePtr->white_vertices.push_back(new_white_vertex);
-    } else {
+    }
+    else
+    {
       VertexPtr new_black_vertex;
       new_black_vertex = new Vertex(newVertex, (*it), BLACK);
       new_black_vertex->collision_node_index = raycast_result.second;
@@ -599,12 +658,14 @@ void SkeletonFinder::genBlackAndWhiteVertices(NodePtr nodePtr) {
   // }
 }
 
-void SkeletonFinder::genSamplesOnUnitSphere() {
+void SkeletonFinder::genSamplesOnUnitSphere()
+{
   // Fibonicci sphere
   double phi = M_PI * (3 - sqrt(5));
   double x, y, z, radius, theta;
 
-  for (int i = 0; i < _sampling_density; i++) {
+  for (int i = 0; i < _sampling_density; i++)
+  {
     y = 1 - 2 * ((float)i / (float)(_sampling_density - 1));
     radius = sqrt(1 - y * y);
     theta = phi * i;
@@ -622,12 +683,16 @@ void SkeletonFinder::genSamplesOnUnitSphere() {
 // >=0: collision is with the node of that index
 pair<Vector3d, int> SkeletonFinder::raycast(Vector3d ray_source,
                                             Vector3d direction,
-                                            double cut_off_length) {
+                                            double cut_off_length)
+{
   double clearance = radiusSearch(ray_source).first;
-  if (clearance > cut_off_length) {
+  if (clearance > cut_off_length)
+  {
     pair<Vector3d, int> return_pair(ray_source, -2);
     return return_pair;
-  } else {
+  }
+  else
+  {
     // Eigen::Vector3d offset = _resolution * direction;
     Eigen::Vector3d current_pos = ray_source + clearance * direction;
     // int cnt = 0;
@@ -638,12 +703,14 @@ pair<Vector3d, int> SkeletonFinder::raycast(Vector3d ray_source,
 
     // while (cnt * _resolution <= cut_off_length) {
     // while (cnt * _resolution <= cut_off_length - clearance) {
-    while (length <= cut_off_length) {
+    while (length <= cut_off_length)
+    {
       pair<double, int> rs = radiusSearch(current_pos);
       double radius = rs.first;
       // ROS_WARN("radiusSearch value: %f", radius);
 
-      if (radius < _search_margin) {
+      if (radius < _search_margin)
+      {
         pair<Vector3d, int> return_pair(current_pos, rs.second);
         return return_pair;
       }
@@ -663,21 +730,28 @@ pair<Vector3d, int> SkeletonFinder::raycast(Vector3d ray_source,
 // -1: collision is with map
 pair<Vector3d, int> SkeletonFinder::raycastOnRawMap(Vector3d ray_source,
                                                     Vector3d direction,
-                                                    double cut_off_length) {
+                                                    double cut_off_length)
+{
   // Point cloud map
-  if (_map_representation == 0) {
+  if (_map_representation == 0)
+  {
     double clearance = radiusSearchOnRawMap(ray_source);
-    if (clearance > cut_off_length) {
+    if (clearance > cut_off_length)
+    {
       pair<Vector3d, int> return_pair(ray_source, -2);
       return return_pair;
-    } else {
+    }
+    else
+    {
       Eigen::Vector3d current_pos = ray_source + clearance * direction;
       double length = clearance;
 
-      while (length <= cut_off_length) {
+      while (length <= cut_off_length)
+      {
         double radius = radiusSearchOnRawMap(current_pos);
 
-        if (radius < _search_margin) {
+        if (radius < _search_margin)
+        {
           pair<Vector3d, int> return_pair(current_pos, -1);
           return return_pair;
         }
@@ -694,33 +768,38 @@ pair<Vector3d, int> SkeletonFinder::raycastOnRawMap(Vector3d ray_source,
   return temp;
 }
 
-void SkeletonFinder::centralizeNodePos(NodePtr node) {
+void SkeletonFinder::centralizeNodePos(NodePtr node)
+{
   int cnt = 0;
   Vector3d sum = Vector3d::Zero();
 
   vector<VertexPtr>::iterator it;
   for (it = node->black_vertices.begin(); it != node->black_vertices.end();
-       it++) {
+       it++)
+  {
     cnt++;
     sum = sum + (*it)->coord;
   }
   node->coord = sum / cnt;
 }
 
-void SkeletonFinder::identifyBwFacets() {
+void SkeletonFinder::identifyBwFacets()
+{
   // Mesh2 is for black and white polygon
   quickhull::QuickHull<double> qh;
   quickhull::HalfEdgeMesh<double, size_t> mesh2 = qh.getConvexHullAsMesh(
       &sample_directions[0](0), sample_directions.size(), true);
 
-  for (auto &face : mesh2.m_faces) {
+  for (auto &face : mesh2.m_faces)
+  {
     quickhull::HalfEdgeMesh<double, size_t>::HalfEdge &halfedge =
         mesh2.m_halfEdges[face.m_halfEdgeIndex];
 
     vec3 vertex_quickhull;
     vector<Eigen::Vector3d> vertices_eigen;
     Eigen::Vector3d vertex_eigen;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++)
+    {
       vertex_quickhull = mesh2.m_vertices[halfedge.m_endVertex];
       vertex_eigen = Eigen::Vector3d::Zero();
       vertex_eigen << vertex_quickhull.x, vertex_quickhull.y,
@@ -733,8 +812,10 @@ void SkeletonFinder::identifyBwFacets() {
   }
 }
 
-void SkeletonFinder::identifyFacets(NodePtr node) {
-  for (vector<Eigen::Vector3d> facet_vertices : bw_facets_directions) {
+void SkeletonFinder::identifyFacets(NodePtr node)
+{
+  for (vector<Eigen::Vector3d> facet_vertices : bw_facets_directions)
+  {
     VertexPtr v1, v2, v3;
     v1 = getVertexFromDire(node, facet_vertices.at(0));
     v2 = getVertexFromDire(node, facet_vertices.at(1));
@@ -745,10 +826,12 @@ void SkeletonFinder::identifyFacets(NodePtr node) {
   }
 }
 
-void SkeletonFinder::identifyFrontiers(NodePtr node) {
+void SkeletonFinder::identifyFrontiers(NodePtr node)
+{
   vector<vector<VertexPtr>> bv_groups;
   int num_wv = node->white_vertices.size();
-  for (int i = 0; i < num_wv; i++) {
+  for (int i = 0; i < num_wv; i++)
+  {
     VertexPtr seed_wv = node->white_vertices.at(i);
     if (seed_wv->visited)
       continue;
@@ -761,20 +844,26 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
 
     // ROS_ERROR("A new group of black points:");
     // while (!pending_wv.empty() && group_bv.size() < _max_facets_grouped) {
-    while (!pending_wv.empty()) {
+    while (!pending_wv.empty())
+    {
       VertexPtr v = pending_wv.front();
       v->visited = true;
       pending_wv.pop_front();
 
-      for (VertexPtr v_nbhd : v->connected_vertices) {
-        if (v_nbhd->type == WHITE) {
+      for (VertexPtr v_nbhd : v->connected_vertices)
+      {
+        if (v_nbhd->type == WHITE)
+        {
           if (v_nbhd->visited)
             continue;
           Eigen::Vector3d midpt = (v->coord + v_nbhd->coord) / 2;
-          if (radiusSearch(midpt).first > 2 * _search_margin) {
+          if (radiusSearch(midpt).first > 2 * _search_margin)
+          {
             pending_wv.push_back(v_nbhd);
           }
-        } else {
+        }
+        else
+        {
           // v_nbhd->visited = true;
           v_nbhd->critical = true;
           group_bv.push_back(v_nbhd);
@@ -793,10 +882,12 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
 
   // Filter black vertices
   int num_groups = bv_groups.size();
-  for (int i = 0; i < num_groups; i++) {
+  for (int i = 0; i < num_groups; i++)
+  {
     double mean_length = 0;
     double tolerance;
-    for (VertexPtr v : bv_groups.at(i)) {
+    for (VertexPtr v : bv_groups.at(i))
+    {
       mean_length += v->dis_to_center;
     }
     mean_length /= bv_groups.at(i).size();
@@ -806,36 +897,47 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
     double longest = 0;
     double shortest = 9999;
     int num_ver = bv_groups.at(i).size();
-    for (int j = 0; j < num_ver; j++) {
+    for (int j = 0; j < num_ver; j++)
+    {
       if (onCeilOrFloor(bv_groups.at(i).at(j)->coord) == 0)
         continue;
       double dis = bv_groups.at(i).at(j)->dis_to_center;
-      if (dis - mean_length > tolerance) {
-        if (dis > longest) {
+      if (dis - mean_length > tolerance)
+      {
+        if (dis > longest)
+        {
           longest_index = j;
           longest = dis;
         }
-      } else if (mean_length - dis > tolerance) {
-        if (dis < shortest) {
+      }
+      else if (mean_length - dis > tolerance)
+      {
+        if (dis < shortest)
+        {
           shortest_index = j;
           shortest = dis;
         }
       }
     }
-    if (longest_index != -1) {
+    if (longest_index != -1)
+    {
       bv_groups.at(i).at(longest_index)->type = GREY;
       bv_groups.at(i).at(longest_index)->critical = false;
     }
-    if (shortest_index != -1) {
+    if (shortest_index != -1)
+    {
       bv_groups.at(i).at(shortest_index)->type = GREY;
       bv_groups.at(i).at(shortest_index)->critical = false;
     }
   }
 
   // Inflate critical black vertices
-  for (int i = 0; i < num_groups; i++) {
-    for (VertexPtr v : bv_groups.at(i)) {
-      for (VertexPtr v_nbhd : v->connected_vertices) {
+  for (int i = 0; i < num_groups; i++)
+  {
+    for (VertexPtr v : bv_groups.at(i))
+    {
+      for (VertexPtr v_nbhd : v->connected_vertices)
+      {
         if (v_nbhd->type == BLACK)
           v_nbhd->critical = true;
       }
@@ -844,7 +946,8 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
 
   // Mesh1 is for only black polygon
   vector<vec3> bv_for_mesh;
-  for (VertexPtr bv : node->black_vertices) {
+  for (VertexPtr bv : node->black_vertices)
+  {
     if (onCeilOrFloor(bv->coord) != 0 && !bv->critical)
       continue;
     bv_for_mesh.push_back(
@@ -857,13 +960,15 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
   quickhull::HalfEdgeMesh<double, size_t> mesh1 =
       qh.getConvexHullAsMesh(&(bv_for_mesh)[0].x, (bv_for_mesh).size(), true);
 
-  for (auto &face : mesh1.m_faces) {
+  for (auto &face : mesh1.m_faces)
+  {
     vector<VertexPtr> vertices;
 
     quickhull::HalfEdgeMesh<double, size_t>::HalfEdge &halfedge =
         mesh1.m_halfEdges[face.m_halfEdgeIndex];
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++)
+    {
       vec3 vertex_quickhull = mesh1.m_vertices[halfedge.m_endVertex];
       Eigen::Vector3d vertex_eigen;
       vertex_eigen << vertex_quickhull.x, vertex_quickhull.y,
@@ -882,7 +987,8 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
 
   // Calculate outwards normal for each facet
   int num_facet = node->facets.size();
-  for (int i = 0; i < num_facet; i++) {
+  for (int i = 0; i < num_facet; i++)
+  {
     FacetPtr facet_ptr = node->facets.at(i);
 
     Eigen::Vector3d v1 =
@@ -900,7 +1006,8 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
   }
 
   // Create frontiers given group black vertices
-  for (int i = 0; i < num_groups; i++) {
+  for (int i = 0; i < num_groups; i++)
+  {
     vector<FacetPtr> group_facets =
         findGroupFacetsFromVertices(node, bv_groups.at(i));
     if (group_facets.empty())
@@ -908,21 +1015,24 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
 
     findNbhdFacets(group_facets);
     vector<vector<FacetPtr>> linked_groups;
-    for (FacetPtr facet : group_facets) {
+    for (FacetPtr facet : group_facets)
+    {
       if (facet->linked)
         continue;
 
       vector<FacetPtr> linked_group_facets;
       deque<FacetPtr> pending_facets;
       pending_facets.push_back(facet);
-      while (!pending_facets.empty()) {
+      while (!pending_facets.empty())
+      {
         FacetPtr current_facet = pending_facets.front();
         pending_facets.pop_front();
         if (current_facet->linked)
           continue;
         linked_group_facets.push_back(current_facet);
         current_facet->linked = true;
-        for (FacetPtr nbhd : current_facet->nbhd_facets) {
+        for (FacetPtr nbhd : current_facet->nbhd_facets)
+        {
           if (!nbhd->linked)
             pending_facets.push_back(nbhd);
         }
@@ -932,10 +1042,12 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
     }
 
     int num_linked_groups = linked_groups.size();
-    for (int j = 0; j < num_linked_groups; j++) {
+    for (int j = 0; j < num_linked_groups; j++)
+    {
       vector<FrontierPtr> frontiers = splitFrontier(node, linked_groups.at(j));
       // vector<FrontierPtr> frontiers = splitFrontier(node, group_facets);
-      for (FrontierPtr f : frontiers) {
+      for (FrontierPtr f : frontiers)
+      {
         // ROS_ERROR("Pushed a new frontier, proj_center(%f, %f, %f)",
         // f->proj_center(0),
         //           f->proj_center(1), f->proj_center(2));
@@ -949,7 +1061,8 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
 
   // Add bv_group for those connecting bvs having big diff in dis_to_center
   vector<FacetPtr> jump_facets;
-  for (FacetPtr facet : node->facets) {
+  for (FacetPtr facet : node->facets)
+  {
     if (facet->valid)
       continue;
     if (facetOnCeilOrFloor(facet))
@@ -957,7 +1070,8 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
 
     int count_jump = 0;
     // bool bad = false;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++)
+    {
       VertexPtr v1 = facet->vertices.at(i);
       // if(onCeilOrFloor(v1->coord) != 0){
       //   bad = true;
@@ -965,12 +1079,14 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
       // }
       VertexPtr v2 = facet->vertices.at((i + 1) % 3);
       if (v1->dis_to_center > _frontier_jump_threshold * v2->dis_to_center ||
-          v2->dis_to_center > _frontier_jump_threshold * v1->dis_to_center) {
+          v2->dis_to_center > _frontier_jump_threshold * v1->dis_to_center)
+      {
         count_jump++;
       }
     }
     // if (bad) continue;
-    if (count_jump > 1) {
+    if (count_jump > 1)
+    {
       jump_facets.push_back(facet);
       facet->valid = true;
     }
@@ -978,21 +1094,24 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
 
   findNbhdFacets(jump_facets);
   vector<vector<FacetPtr>> linked_groups;
-  for (FacetPtr facet : jump_facets) {
+  for (FacetPtr facet : jump_facets)
+  {
     if (facet->linked)
       continue;
 
     vector<FacetPtr> linked_group_facets;
     deque<FacetPtr> pending_facets;
     pending_facets.push_back(facet);
-    while (!pending_facets.empty()) {
+    while (!pending_facets.empty())
+    {
       FacetPtr current_facet = pending_facets.front();
       pending_facets.pop_front();
       if (current_facet->linked)
         continue;
       linked_group_facets.push_back(current_facet);
       current_facet->linked = true;
-      for (FacetPtr nbhd : current_facet->nbhd_facets) {
+      for (FacetPtr nbhd : current_facet->nbhd_facets)
+      {
         if (!nbhd->linked)
           pending_facets.push_back(nbhd);
       }
@@ -1002,7 +1121,8 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
   }
 
   int num_linked_groups = linked_groups.size();
-  for (int j = 0; j < num_linked_groups; j++) {
+  for (int j = 0; j < num_linked_groups; j++)
+  {
     FrontierPtr new_fron = new Frontier(linked_groups.at(j), node);
     if (initFrontier(new_fron))
       node->frontiers.push_back(new_fron);
@@ -1014,7 +1134,8 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
 
   // Wish to expand frontier with more facets first
   sort(node->frontiers.begin(), node->frontiers.end(), compareFrontier);
-  for (FrontierPtr f : node->frontiers) {
+  for (FrontierPtr f : node->frontiers)
+  {
     // ROS_INFO("This frontier size: %d", f->facets.size());
     if (f->facets.empty())
       continue;
@@ -1026,7 +1147,8 @@ void SkeletonFinder::identifyFrontiers(NodePtr node) {
 }
 
 vector<FrontierPtr>
-SkeletonFinder::splitFrontier(NodePtr node, vector<FacetPtr> group_facets) {
+SkeletonFinder::splitFrontier(NodePtr node, vector<FacetPtr> group_facets)
+{
   vector<FrontierPtr> frontiers;
   // bool test_node = false;
   // Eigen::Vector3d position(-20.912447, 5.552020, 1.432291);
@@ -1035,7 +1157,8 @@ SkeletonFinder::splitFrontier(NodePtr node, vector<FacetPtr> group_facets) {
   //   getchar();
   //   test_node = true;
   // }
-  if ((int)group_facets.size() <= _max_facets_grouped) {
+  if ((int)group_facets.size() <= _max_facets_grouped)
+  {
     // if (!test_node) {
     // FrontierPtr new_frontier = new Frontier(group_facets, node);
     // frontiers.push_back(new_frontier);
@@ -1047,19 +1170,24 @@ SkeletonFinder::splitFrontier(NodePtr node, vector<FacetPtr> group_facets) {
     // else {
     Eigen::Vector3d avg_normal = Eigen::Vector3d::Zero();
     vector<FacetPtr> filtered_group_facets;
-    for (FacetPtr f : group_facets) {
+    for (FacetPtr f : group_facets)
+    {
       avg_normal += f->outwards_unit_normal;
     }
     avg_normal.normalize();
-    for (FacetPtr f : group_facets) {
-      if (f->nbhd_facets.size() < 2) {
+    for (FacetPtr f : group_facets)
+    {
+      if (f->nbhd_facets.size() < 2)
+      {
         double angle = acos(avg_normal.dot(f->outwards_unit_normal));
-        if (angle > M_PI / 2.5) {
+        if (angle > M_PI / 2.5)
+        {
           vector<FacetPtr> single_facet;
           single_facet.push_back(f);
           FrontierPtr new_frontier = new Frontier(single_facet, node);
           frontiers.push_back(new_frontier);
-          if (!initFrontier(new_frontier)) {
+          if (!initFrontier(new_frontier))
+          {
             // ROS_ERROR("1-2. Init frontier failed!!! Change to use alternative
             // center and normal");
           }
@@ -1070,14 +1198,18 @@ SkeletonFinder::splitFrontier(NodePtr node, vector<FacetPtr> group_facets) {
     }
     FrontierPtr new_frontier = new Frontier(filtered_group_facets, node);
     frontiers.push_back(new_frontier);
-    if (!initFrontier(new_frontier)) {
+    if (!initFrontier(new_frontier))
+    {
       // ROS_ERROR("1-2. Init frontier failed!!! Change to use alternative
       // proj_center");
     }
     // }
-  } else {
+  }
+  else
+  {
     // findNbhdFacets(group_facets);
-    for (FacetPtr facet : group_facets) {
+    for (FacetPtr facet : group_facets)
+    {
       if (facet->visited)
         continue;
 
@@ -1088,21 +1220,27 @@ SkeletonFinder::splitFrontier(NodePtr node, vector<FacetPtr> group_facets) {
       pending_facets.push_back(facet);
 
       while (!pending_facets.empty() &&
-             (int)small_group_facets.size() < _max_facets_grouped) {
+             (int)small_group_facets.size() < _max_facets_grouped)
+      {
         // while (!pending_facets.empty()) {
         FacetPtr f = pending_facets.front();
         pending_facets.pop_front();
 
-        if (!small_group_facets.empty()) {
+        if (!small_group_facets.empty())
+        {
           if (acos(f->outwards_unit_normal.dot(normal)) <
-              M_PI / _frontier_split_threshold) {
+              M_PI / _frontier_split_threshold)
+          {
             normal =
                 (normal * small_group_facets.size() + f->outwards_unit_normal) /
                 (small_group_facets.size() + 1);
             normal.normalize();
-          } else
+          }
+          else
             continue;
-        } else {
+        }
+        else
+        {
           normal = f->outwards_unit_normal;
         }
 
@@ -1122,7 +1260,8 @@ SkeletonFinder::splitFrontier(NodePtr node, vector<FacetPtr> group_facets) {
 
         f->visited = true;
         small_group_facets.push_back(f);
-        for (FacetPtr f_nbhd : f->nbhd_facets) {
+        for (FacetPtr f_nbhd : f->nbhd_facets)
+        {
           if (f_nbhd->visited)
             continue;
           pending_facets.push_back(f_nbhd);
@@ -1131,7 +1270,8 @@ SkeletonFinder::splitFrontier(NodePtr node, vector<FacetPtr> group_facets) {
 
       FrontierPtr new_frontier = new Frontier(small_group_facets, node);
       frontiers.push_back(new_frontier);
-      if (!initFrontier(new_frontier)) {
+      if (!initFrontier(new_frontier))
+      {
         // ROS_ERROR("2. Init frontier failed!!! Change to use alternative
         // center and normal");
       }
@@ -1142,10 +1282,13 @@ SkeletonFinder::splitFrontier(NodePtr node, vector<FacetPtr> group_facets) {
   return frontiers;
 }
 
-void SkeletonFinder::findNbhdFacets(vector<FacetPtr> facets) {
+void SkeletonFinder::findNbhdFacets(vector<FacetPtr> facets)
+{
   int num_facet = facets.size();
-  for (int i = 0; i < num_facet - 1; i++) {
-    for (int j = i + 1; j < num_facet; j++) {
+  for (int i = 0; i < num_facet - 1; i++)
+  {
+    for (int j = i + 1; j < num_facet; j++)
+    {
       FacetPtr f1 = facets.at(i);
       FacetPtr f2 = facets.at(j);
 
@@ -1153,15 +1296,19 @@ void SkeletonFinder::findNbhdFacets(vector<FacetPtr> facets) {
         break;
 
       int same_vertices_count = 0;
-      for (int s = 0; s < 3; s++) {
-        for (int t = 0; t < 3; t++) {
-          if (isSamePos(f1->vertices.at(s)->coord, f2->vertices.at(t)->coord)) {
+      for (int s = 0; s < 3; s++)
+      {
+        for (int t = 0; t < 3; t++)
+        {
+          if (isSamePos(f1->vertices.at(s)->coord, f2->vertices.at(t)->coord))
+          {
             same_vertices_count++;
             break;
           }
         }
       }
-      if (same_vertices_count == 2) {
+      if (same_vertices_count == 2)
+      {
         // if (same_vertices_count >= 1) {
         f1->nbhd_facets.push_back(f2);
         f2->nbhd_facets.push_back(f1);
@@ -1172,22 +1319,28 @@ void SkeletonFinder::findNbhdFacets(vector<FacetPtr> facets) {
 
 vector<FacetPtr>
 SkeletonFinder::findGroupFacetsFromVertices(NodePtr node,
-                                            vector<VertexPtr> group_bv) {
+                                            vector<VertexPtr> group_bv)
+{
   vector<FacetPtr> group_facets;
-  for (FacetPtr f : node->facets) {
+  for (FacetPtr f : node->facets)
+  {
     // int num_bv_included = 0;
     bool good = true;
-    for (VertexPtr v_facet : f->vertices) {
+    for (VertexPtr v_facet : f->vertices)
+    {
       bool notIncluded = true;
-      for (VertexPtr v_group : group_bv) {
+      for (VertexPtr v_group : group_bv)
+      {
         if (!v_group->critical)
           continue;
-        if (isSamePos(v_facet->coord, v_group->coord)) {
+        if (isSamePos(v_facet->coord, v_group->coord))
+        {
           notIncluded = false;
           break;
         }
       }
-      if (notIncluded) {
+      if (notIncluded)
+      {
         good = false;
         break;
       }
@@ -1196,7 +1349,8 @@ SkeletonFinder::findGroupFacetsFromVertices(NodePtr node,
       // }
     }
     // All of the three vertices are included in the group_bv
-    if (good) {
+    if (good)
+    {
       // if (num_bv_included >= 3) {
       // Exclude facets completely on ceil or floor to improve frontier accuracy
       if ((onCeilOrFloor(f->vertices.at(0)->coord) == 1 &&
@@ -1213,7 +1367,8 @@ SkeletonFinder::findGroupFacetsFromVertices(NodePtr node,
   return group_facets;
 }
 
-void SkeletonFinder::findFlowBack(NodePtr node) {
+void SkeletonFinder::findFlowBack(NodePtr node)
+{
   if (node->seed_frontier == NULL)
     return;
   // vector<int> loop_frontier_counter(loop_candidate_frontiers.size(), 0);
@@ -1224,19 +1379,22 @@ void SkeletonFinder::findFlowBack(NodePtr node) {
   vector<int> collision_node_index_log;
 
   // Count number of contact black vertices on each frontiers
-  for (VertexPtr v : node->black_vertices) {
+  for (VertexPtr v : node->black_vertices)
+  {
     // only process vertices collide with other polyhedrons
     if (v->collision_node_index < 0)
       continue;
     // hit_on_pcl is on seed_frontier which is already connected
-    if (checkPtOnFrontier(node->seed_frontier, v->coord)) {
+    if (checkPtOnFrontier(node->seed_frontier, v->coord))
+    {
       // ROS_WARN("hit_on_pcl is on seed_frontier");
       continue;
     }
 
     FrontierPtr loop_ftr =
         findFlowBackFrontier(v->coord, v->collision_node_index);
-    if (loop_ftr == NULL) {
+    if (loop_ftr == NULL)
+    {
       // ROS_ERROR("Cannot find a loop frontier!!!");
       collision_node_index_log.push_back(v->collision_node_index);
       continue;
@@ -1247,11 +1405,13 @@ void SkeletonFinder::findFlowBack(NodePtr node) {
   }
 
   // Sort decreasingly: flowback frontiers with more hits first
-  for (int i = 0; i < size; i++) {
+  for (int i = 0; i < size; i++)
+  {
     if (flow_back_frontier_log.at(i).empty())
       continue;
     if ((int)flow_back_frontier_log.at(i).size() <
-        _min_flowback_creation_threshold) {
+        _min_flowback_creation_threshold)
+    {
       // ROS_ERROR("Flowback size: %d", flow_back_frontier_log.at(i).size());
       // ROS_ERROR("Radius: %f",
       // getVerticesRadius(flow_back_frontier_log.at(i)));
@@ -1261,12 +1421,15 @@ void SkeletonFinder::findFlowBack(NodePtr node) {
     }
     if (pending_frontier_index.empty())
       pending_frontier_index.push_back(i);
-    else {
+    else
+    {
       vector<int>::iterator it;
       for (it = pending_frontier_index.begin();
-           it != pending_frontier_index.end(); it++) {
+           it != pending_frontier_index.end(); it++)
+      {
         if (flow_back_frontier_log.at(*it).size() <
-            flow_back_frontier_log.at(i).size()) {
+            flow_back_frontier_log.at(i).size())
+        {
           pending_frontier_index.insert(it, i);
           break;
         }
@@ -1280,17 +1443,22 @@ void SkeletonFinder::findFlowBack(NodePtr node) {
   int size_pending_frontier = pending_frontier_index.size();
   // ROS_ERROR("size_pending_frontier: %d", size_pending_frontier);
   vector<Eigen::Vector3d> connected_node_pos;
-  if (node->seed_frontier->gate_node->connected_Node_ptr.empty()) {
+  if (node->seed_frontier->gate_node->connected_Node_ptr.empty())
+  {
     connected_node_pos.push_back(node->seed_frontier->master_node->coord);
     // ROS_INFO("gate node con empty: push_back a pos");
-  } else {
+  }
+  else
+  {
     for (NodePtr gate_con_node :
-         node->seed_frontier->gate_node->connected_Node_ptr) {
+         node->seed_frontier->gate_node->connected_Node_ptr)
+    {
       connected_node_pos.push_back(gate_con_node->coord);
       // ROS_INFO("gate node con nonempty: push_back a pos");
     }
   }
-  for (int i = 0; i < size_pending_frontier; i++) {
+  for (int i = 0; i < size_pending_frontier; i++)
+  {
     // ROS_ERROR("%d ,", pending_frontier_index.at(i));
     int ind = pending_frontier_index.at(i);
     FrontierPtr flowback_frontier = frontiers.at(ind);
@@ -1303,30 +1471,39 @@ void SkeletonFinder::findFlowBack(NodePtr node) {
       end_pt_on_frontier = flowback_frontier->gate_node->coord;
     if (!checkSegClear(node->coord, end_pt_on_frontier) ||
         !checkSegClear(flowback_frontier->master_node->coord,
-                       end_pt_on_frontier)) {
+                       end_pt_on_frontier))
+    {
       // ROS_ERROR("Flowback seg not clear!");
       continue;
     }
 
     // Bad loop: loop only contains 4 nodes
-    if (_bad_loop) {
+    if (_bad_loop)
+    {
       bool bad_loop = false;
-      for (Eigen::Vector3d pos : connected_node_pos) {
+      for (Eigen::Vector3d pos : connected_node_pos)
+      {
         // ROS_INFO("Checking connected node pos: (%f, %f, %f)", pos(0), pos(1),
         // pos(2));
         if (flowback_frontier->gate_node == NULL ||
-            flowback_frontier->gate_node->rollbacked) {
+            flowback_frontier->gate_node->rollbacked)
+        {
           // ROS_INFO("flowback_frontier doesn't have gate node");
-          if (isSamePos(pos, flowback_frontier->master_node->coord)) {
+          if (isSamePos(pos, flowback_frontier->master_node->coord))
+          {
             bad_loop = true;
             // ROS_INFO("isSamePos");
           }
           // ROS_INFO("NOT isSamePos");
-        } else {
+        }
+        else
+        {
           // ROS_INFO("flowback_frontier has gate node");
           for (NodePtr frontier_con_node :
-               flowback_frontier->gate_node->connected_Node_ptr) {
-            if (isSamePos(pos, frontier_con_node->coord)) {
+               flowback_frontier->gate_node->connected_Node_ptr)
+          {
+            if (isSamePos(pos, frontier_con_node->coord))
+            {
               bad_loop = true;
               // ROS_INFO("isSamePos");
               break;
@@ -1337,23 +1514,27 @@ void SkeletonFinder::findFlowBack(NodePtr node) {
         if (bad_loop)
           break;
       }
-      if (bad_loop) {
+      if (bad_loop)
+      {
         // ROS_ERROR("BAD LOOP!!!");
         continue;
       }
     }
 
     // Create flowback: new gate node if necessary
-    if (flowback_frontier->gate_node == NULL) {
+    if (flowback_frontier->gate_node == NULL)
+    {
       NodePtr new_gate =
           new Node(flowback_frontier->proj_center, flowback_frontier, true);
-      if (initNode(new_gate)) {
+      if (initNode(new_gate))
+      {
         flowback_frontier->gate_node = new_gate;
         flowback_frontier->master_node->connected_Node_ptr.push_back(new_gate);
         new_gate->connected_Node_ptr.push_back(flowback_frontier->master_node);
         node->connected_Node_ptr.push_back(new_gate);
         new_gate->connected_Node_ptr.push_back(node);
-      } else
+      }
+      else
         continue;
       // flowback_frontier->gate_node = new_gate;
       // flowback_frontier->master_node->connected_Node_ptr.push_back(new_gate);
@@ -1361,7 +1542,9 @@ void SkeletonFinder::findFlowBack(NodePtr node) {
       // initNode(new_gate);
       // node->connected_Node_ptr.push_back(new_gate);
       // new_gate->connected_Node_ptr.push_back(node);
-    } else if (flowback_frontier->gate_node->rollbacked) {
+    }
+    else if (flowback_frontier->gate_node->rollbacked)
+    {
       flowback_frontier->gate_node->rollbacked = false;
       recordNode(flowback_frontier->gate_node);
       flowback_frontier->master_node->connected_Node_ptr.push_back(
@@ -1370,19 +1553,23 @@ void SkeletonFinder::findFlowBack(NodePtr node) {
           flowback_frontier->master_node);
       node->connected_Node_ptr.push_back(flowback_frontier->gate_node);
       flowback_frontier->gate_node->connected_Node_ptr.push_back(node);
-    } else {
+    }
+    else
+    {
       node->connected_Node_ptr.push_back(flowback_frontier->gate_node);
       flowback_frontier->gate_node->connected_Node_ptr.push_back(node);
     }
 
     for (NodePtr frontier_con_node :
-         flowback_frontier->gate_node->connected_Node_ptr) {
+         flowback_frontier->gate_node->connected_Node_ptr)
+    {
       connected_node_pos.push_back(frontier_con_node->coord);
     }
   }
 }
 
-bool SkeletonFinder::initFrontier(FrontierPtr frontier) {
+bool SkeletonFinder::initFrontier(FrontierPtr frontier)
+{
   // Set proj_center
   bool proj_center_found = false;
 
@@ -1398,7 +1585,8 @@ bool SkeletonFinder::initFrontier(FrontierPtr frontier) {
   double nz = frontier->outwards_unit_normal(2);
 
   int num_facet = frontier->facets.size();
-  for (int i = 0; i < num_facet; i++) {
+  for (int i = 0; i < num_facet; i++)
+  {
     double a = frontier->facets.at(i)->plane_equation(0);
     double b = frontier->facets.at(i)->plane_equation(1);
     double c = frontier->facets.at(i)->plane_equation(2);
@@ -1417,7 +1605,8 @@ bool SkeletonFinder::initFrontier(FrontierPtr frontier) {
     Eigen::Vector3d cross2 = (coord3 - coord2).cross(intersection - coord2);
     Eigen::Vector3d cross3 = (coord1 - coord3).cross(intersection - coord3);
     if (cross1(0) * cross2(0) > 0 && cross2(0) * cross3(0) > 0 &&
-        cross3(0) * cross1(0) > 0) {
+        cross3(0) * cross1(0) > 0)
+    {
       frontier->proj_center = intersection;
       // frontier->proj_facet_normal =
       // frontier->facets.at(i)->outwards_unit_normal;
@@ -1432,14 +1621,17 @@ bool SkeletonFinder::initFrontier(FrontierPtr frontier) {
     }
   }
 
-  if (!proj_center_found) {
+  if (!proj_center_found)
+  {
     // ROS_ERROR("size of frontier facets: %d", frontier->facets.size());
     double min_angle = M_PI;
     FacetPtr best_facet;
-    for (FacetPtr f : frontier->facets) {
+    for (FacetPtr f : frontier->facets)
+    {
       double angle =
           acos(frontier->outwards_unit_normal.dot(f->outwards_unit_normal));
-      if (angle < min_angle) {
+      if (angle < min_angle)
+      {
         min_angle = angle;
         best_facet = f;
       }
@@ -1451,12 +1643,17 @@ bool SkeletonFinder::initFrontier(FrontierPtr frontier) {
   }
 
   // Set vertices
-  for (FacetPtr facet : frontier->facets) {
-    for (VertexPtr v_facet : facet->vertices) {
+  for (FacetPtr facet : frontier->facets)
+  {
+    for (VertexPtr v_facet : facet->vertices)
+    {
       bool exist = false;
-      if (!frontier->vertices.empty()) {
-        for (VertexPtr v_frontier : frontier->vertices) {
-          if (isSamePos(v_facet->coord, v_frontier->coord)) {
+      if (!frontier->vertices.empty())
+      {
+        for (VertexPtr v_frontier : frontier->vertices)
+        {
+          if (isSamePos(v_facet->coord, v_frontier->coord))
+          {
             exist = true;
             break;
           }
@@ -1470,14 +1667,16 @@ bool SkeletonFinder::initFrontier(FrontierPtr frontier) {
   return proj_center_found;
 }
 
-bool SkeletonFinder::checkPtInPolyhedron(NodePtr node, Eigen::Vector3d pt) {
+bool SkeletonFinder::checkPtInPolyhedron(NodePtr node, Eigen::Vector3d pt)
+{
   int intersection_count = 0;
   double x = pt(0);
   double y = pt(1);
   double z = pt(2);
 
   int num_ftr = node->facets.size();
-  for (int i = 0; i < num_ftr; i++) {
+  for (int i = 0; i < num_ftr; i++)
+  {
     FacetPtr inter_ftr_ptr = node->facets.at(i);
 
     Eigen::Vector3d coord1 = inter_ftr_ptr->vertices.at(0)->coord;
@@ -1493,12 +1692,14 @@ bool SkeletonFinder::checkPtInPolyhedron(NodePtr node, Eigen::Vector3d pt) {
     Eigen::Vector3d pt_to_judge;
     pt_to_judge << x, y, inter_z;
 
-    if (inter_z >= z) {
+    if (inter_z >= z)
+    {
       Eigen::Vector3d cross1 = (coord2 - coord1).cross(pt_to_judge - coord1);
       Eigen::Vector3d cross2 = (coord3 - coord2).cross(pt_to_judge - coord2);
       Eigen::Vector3d cross3 = (coord1 - coord3).cross(pt_to_judge - coord3);
       if (cross1(0) * cross2(0) > 0 && cross2(0) * cross3(0) > 0 &&
-          cross3(0) * cross1(0) > 0) {
+          cross3(0) * cross1(0) > 0)
+      {
         intersection_count++;
       }
     }
@@ -1510,7 +1711,8 @@ bool SkeletonFinder::checkPtInPolyhedron(NodePtr node, Eigen::Vector3d pt) {
     return true;
 }
 
-void SkeletonFinder::verifyFrontier(FrontierPtr ftr_ptr) {
+void SkeletonFinder::verifyFrontier(FrontierPtr ftr_ptr)
+{
   // ROS_ERROR("Start verifyFrontier");
 
   Eigen::Vector3d raycast_start_pt =
@@ -1523,7 +1725,8 @@ void SkeletonFinder::verifyFrontier(FrontierPtr ftr_ptr) {
   //           raycast_start_pt(2));
 
   pair<double, int> rs_result = radiusSearch(raycast_start_pt);
-  if (rs_result.first < _search_margin) {
+  if (rs_result.first < _search_margin)
+  {
     ftr_ptr->valid = false;
     return;
   }
@@ -1536,36 +1739,45 @@ void SkeletonFinder::verifyFrontier(FrontierPtr ftr_ptr) {
   Eigen::Vector3d hit_on_pcl = raycast_result.first;
 
   // raycast into a long corridor
-  if (hit_on_pcl == raycast_start_pt) {
+  if (hit_on_pcl == raycast_start_pt)
+  {
     // ROS_INFO("verifyFrontiers: raycast into a long corridor");
     Eigen::Vector3d new_node_candidate =
         ftr_ptr->proj_center +
         0.5 * _max_expansion_ray_length * ftr_ptr->outwards_unit_normal;
-    if (checkWithinBbx(new_node_candidate)) {
+    if (checkWithinBbx(new_node_candidate))
+    {
       ftr_ptr->next_node_pos = new_node_candidate;
       ftr_ptr->valid = true;
       // ROS_INFO("verifyFrontiers: and set new node at max limit");
-    } else {
+    }
+    else
+    {
       // ROS_INFO("verifyFrontiers: new node candidate exceeds bbx");
     }
   }
   // normal case
   else if (getDis(hit_on_pcl, ftr_ptr->proj_center) >
-           _frontier_creation_threshold) {
+           _frontier_creation_threshold)
+  {
     ftr_ptr->valid = true;
     ftr_ptr->next_node_pos = (hit_on_pcl + ftr_ptr->proj_center) / 2;
     // ROS_INFO("verifyFrontiers: valid. New node (%f, %f, %f)",
     // ftr_ptr->next_node_pos(0),
     //          ftr_ptr->next_node_pos(1), ftr_ptr->next_node_pos(2));
-  } else {
+  }
+  else
+  {
     // ROS_INFO("verifyFrontiers: hit_on_pcl too near to frontier");
   }
 }
 
-void SkeletonFinder::addFacetsToPcl(NodePtr nodePtr) {
+void SkeletonFinder::addFacetsToPcl(NodePtr nodePtr)
+{
   pcl::PointCloud<pcl::PointXYZ> poly_pcl;
   int num_facet = nodePtr->facets.size();
-  for (int i = 0; i < num_facet; i++) {
+  for (int i = 0; i < num_facet; i++)
+  {
     FacetPtr facet = nodePtr->facets.at(i);
 
     vector<Eigen::Vector3d> start_list;
@@ -1593,7 +1805,8 @@ void SkeletonFinder::addFacetsToPcl(NodePtr nodePtr) {
 
     int num_start_pt = ceil(left_to_top.norm() / start_pt_step);
     double length;
-    for (int j = 0; j < num_start_pt; j++) {
+    for (int j = 0; j < num_start_pt; j++)
+    {
       Eigen::Vector3d start =
           left_vertex + j * start_pt_step * left_to_top_unit;
       Eigen::Vector3d end = right_vertex + j * end_pt_step * right_to_top_unit;
@@ -1604,12 +1817,15 @@ void SkeletonFinder::addFacetsToPcl(NodePtr nodePtr) {
 
     Eigen::Vector3d direction_unit = right_vertex - left_vertex;
     direction_unit.normalize();
-    for (int j = 0; j < num_start_pt; j++) {
+    for (int j = 0; j < num_start_pt; j++)
+    {
       int num_pts = ceil(length_list.at(j) / step_length);
-      for (int k = 0; k < num_pts; k++) {
+      for (int k = 0; k < num_pts; k++)
+      {
         Eigen::Vector3d pt_to_push =
             start_list.at(j) + k * direction_unit * step_length;
-        for (int s = 0; s < 4; s++) {
+        for (int s = 0; s < 4; s++)
+        {
           // map_pcl.points.push_back(pcl::PointXYZ(pt_to_push(0),
           // pt_to_push(1), pt_to_push(2)));
           poly_pcl.points.push_back(
@@ -1619,7 +1835,8 @@ void SkeletonFinder::addFacetsToPcl(NodePtr nodePtr) {
       }
       Eigen::Vector3d end_to_push =
           start_list.at(j) + length_list.at(j) * direction_unit;
-      for (int s = 0; s < 4; s++) {
+      for (int s = 0; s < 4; s++)
+      {
         // map_pcl.points.push_back(pcl::PointXYZ(end_to_push(0),
         // end_to_push(1), end_to_push(2)));
         poly_pcl.points.push_back(
@@ -1653,7 +1870,8 @@ void SkeletonFinder::addFacetsToPcl(NodePtr nodePtr) {
   */
 }
 
-bool SkeletonFinder::processFrontier(FrontierPtr curFtrPtr) {
+bool SkeletonFinder::processFrontier(FrontierPtr curFtrPtr)
+{
   // ROS_ERROR("Start process frontier");
   // double direction_theta =
   //     atan2(curFtrPtr->outwards_unit_normal(1),
@@ -1661,16 +1879,20 @@ bool SkeletonFinder::processFrontier(FrontierPtr curFtrPtr) {
 
   // Gate node: midpoint of frontier
   NodePtr gate;
-  if (curFtrPtr->gate_node == NULL) {
+  if (curFtrPtr->gate_node == NULL)
+  {
     gate = new Node(curFtrPtr->proj_center, curFtrPtr, true);
     curFtrPtr->gate_node = gate;
-  } else {
+  }
+  else
+  {
     gate = curFtrPtr->gate_node;
   }
 
   bool floor = checkFloor(gate);
   bool bbx = checkWithinBbx(gate->coord);
-  if (!floor || !bbx) {
+  if (!floor || !bbx)
+  {
     gate->rollbacked = true;
     // if (!floor) {
     //   ROS_INFO("processFrontier: no floor");
@@ -1688,20 +1910,25 @@ bool SkeletonFinder::processFrontier(FrontierPtr curFtrPtr) {
   NodePtr new_node = new Node(curFtrPtr->next_node_pos, curFtrPtr);
   bool init_success = initNode(new_node);
 
-  if (init_success) {
+  if (init_success)
+  {
     initNode(gate);
     // double-sided pointers
     curFtrPtr->master_node->connected_Node_ptr.push_back(gate);
     gate->connected_Node_ptr.push_back(curFtrPtr->master_node);
     gate->connected_Node_ptr.push_back(new_node);
     new_node->connected_Node_ptr.push_back(gate);
-  } else {
+  }
+  else
+  {
     // ROS_INFO("processFrontier: new node init fails");
     new_node->rollbacked = true;
-    if (gate->connected_Node_ptr.empty()) {
+    if (gate->connected_Node_ptr.empty())
+    {
       gate->rollbacked = true;
       curFtrPtr->valid = false;
-      for (auto f : curFtrPtr->facets) {
+      for (auto f : curFtrPtr->facets)
+      {
         f->valid = false;
       }
     }
@@ -1717,7 +1944,8 @@ bool SkeletonFinder::processFrontier(FrontierPtr curFtrPtr) {
 }
 
 vector<Eigen::Vector3d> SkeletonFinder::findPath(Eigen::Vector3d start,
-                                                 Eigen::Vector3d target) {
+                                                 Eigen::Vector3d target)
+{
   Eigen::Vector3d start_astar = Eigen::Vector3d::Zero();
   Eigen::Vector3d target_astar = Eigen::Vector3d::Zero();
   vector<Eigen::Vector3d> path;
@@ -1734,12 +1962,14 @@ vector<Eigen::Vector3d> SkeletonFinder::findPath(Eigen::Vector3d start,
   pointRadiusSquaredDistanceForNodes.clear();
   kdtreeForNodes.nearestKSearch(pcl_start, 5, pointIdxRadiusSearchForNodes,
                                 pointRadiusSquaredDistanceForNodes);
-  for (std::size_t i = 0; i < pointIdxRadiusSearchForNodes.size(); ++i) {
+  for (std::size_t i = 0; i < pointIdxRadiusSearchForNodes.size(); ++i)
+  {
     Eigen::Vector3d nbhd;
     nbhd << nodes_pcl[pointIdxRadiusSearchForNodes[i]].x,
         nodes_pcl[pointIdxRadiusSearchForNodes[i]].y,
         nodes_pcl[pointIdxRadiusSearchForNodes[i]].z;
-    if (checkSegClear(start, nbhd)) {
+    if (checkSegClear(start, nbhd))
+    {
       start_astar = nbhd;
       break;
     }
@@ -1750,26 +1980,30 @@ vector<Eigen::Vector3d> SkeletonFinder::findPath(Eigen::Vector3d start,
   pointRadiusSquaredDistanceForNodes.clear();
   kdtreeForNodes.nearestKSearch(pcl_target, 10, pointIdxRadiusSearchForNodes,
                                 pointRadiusSquaredDistanceForNodes);
-  for (std::size_t i = 0; i < pointIdxRadiusSearchForNodes.size(); ++i) {
+  for (std::size_t i = 0; i < pointIdxRadiusSearchForNodes.size(); ++i)
+  {
     Eigen::Vector3d nbhd;
     nbhd << nodes_pcl[pointIdxRadiusSearchForNodes[i]].x,
         nodes_pcl[pointIdxRadiusSearchForNodes[i]].y,
         nodes_pcl[pointIdxRadiusSearchForNodes[i]].z;
-    if (checkSegClear(target, nbhd)) {
+    if (checkSegClear(target, nbhd))
+    {
       target_astar = nbhd;
       break;
     }
   }
 
   if (start_astar == Eigen::Vector3d::Zero() ||
-      target_astar == Eigen::Vector3d::Zero()) {
+      target_astar == Eigen::Vector3d::Zero())
+  {
     ROS_ERROR("Can't find nodes on skeleton to connect!");
     return path;
   }
 
   vector<Eigen::Vector3d> astar_path =
       findPathByAStar(start_astar, target_astar);
-  if (!astar_path.empty()) {
+  if (!astar_path.empty())
+  {
     path.push_back(start);
     for (Eigen::Vector3d waypoint : astar_path)
       path.push_back(waypoint);
@@ -1778,21 +2012,26 @@ vector<Eigen::Vector3d> SkeletonFinder::findPath(Eigen::Vector3d start,
     path_finder.visNodes();
     path_finder.visConnections();
     return path;
-  } else {
+  }
+  else
+  {
     ROS_ERROR("Path not found!");
     return path;
   }
 }
 
 vector<Eigen::Vector3d>
-SkeletonFinder::findPathByAStar(Eigen::Vector3d start, Eigen::Vector3d target) {
+SkeletonFinder::findPathByAStar(Eigen::Vector3d start, Eigen::Vector3d target)
+{
   vector<a_star::NodePtr> as_nodes;
-  for (NodePtr node : NodeList) {
+  for (NodePtr node : NodeList)
+  {
     if (node->rollbacked)
       continue;
 
     vector<Eigen::Vector3d> connected_node_pos;
-    for (NodePtr con_node : node->connected_Node_ptr) {
+    for (NodePtr con_node : node->connected_Node_ptr)
+    {
       // if (con_node->rollbacked) continue;
       connected_node_pos.push_back(con_node->coord);
     }
@@ -1803,34 +2042,42 @@ SkeletonFinder::findPathByAStar(Eigen::Vector3d start, Eigen::Vector3d target) {
   path_finder.init(as_nodes);
   int result = path_finder.search(start, target);
   vector<Eigen::Vector3d> path;
-  if (result == 1) { // REACH_END
+  if (result == 1)
+  { // REACH_END
     // ROS_INFO("A_star: REACH_END!");
     path = path_finder.getPath();
-  } else {
+  }
+  else
+  {
     // ROS_ERROR("A_star: NO_PATH!");
   }
   return path;
 }
 
 /* ------------------ Utility functions ----------------- */
-bool SkeletonFinder::isSamePos(Eigen::Vector3d pos1, Eigen::Vector3d pos2) {
+bool SkeletonFinder::isSamePos(Eigen::Vector3d pos1, Eigen::Vector3d pos2)
+{
   return getDis(pos1, pos2) < 1e-4;
 }
 
 VertexPtr SkeletonFinder::getVertexFromDire(NodePtr node,
-                                            Eigen::Vector3d dire) {
-  for (VertexPtr v : node->black_vertices) {
+                                            Eigen::Vector3d dire)
+{
+  for (VertexPtr v : node->black_vertices)
+  {
     if (isSamePos(v->dire_unit_sphere, dire))
       return v;
   }
-  for (VertexPtr v : node->white_vertices) {
+  for (VertexPtr v : node->white_vertices)
+  {
     if (isSamePos(v->dire_unit_sphere, dire))
       return v;
   }
   return NULL;
 }
 
-bool SkeletonFinder::checkFloor(NodePtr node) {
+bool SkeletonFinder::checkFloor(NodePtr node)
+{
   Eigen::Vector3d downwards(0, 0, -1);
   pair<Vector3d, int> raycast_result =
       raycastOnRawMap(node->coord, downwards, _max_ray_length);
@@ -1838,22 +2085,26 @@ bool SkeletonFinder::checkFloor(NodePtr node) {
   // ROS_ERROR("raycast result: (%f, %f, %f)", raycast_result.first(0),
   // raycast_result.first(1),
   //           raycast_result.first(2));
-  if (raycast_result.second == -2) {
+  if (raycast_result.second == -2)
+  {
     // ROS_INFO("Floor not found within max_ray_length");
     return false;
   }
   double floor_height = raycast_result.first(2);
 
   // First node case
-  if (node->seed_frontier == NULL) {
+  if (node->seed_frontier == NULL)
+  {
     node->dis_to_floor = floor_height;
     return true;
   }
-  if (!node->isGate) {
+  if (!node->isGate)
+  {
     Eigen::Vector3d mid = (node->coord + node->seed_frontier->proj_center) / 2;
     pair<Vector3d, int> raycast_result_mid =
         raycastOnRawMap(mid, downwards, _max_ray_length);
-    if (raycast_result_mid.second == -2) {
+    if (raycast_result_mid.second == -2)
+    {
       // ROS_INFO("Floor not found within max_ray_length");
       return false;
     }
@@ -1863,14 +2114,16 @@ bool SkeletonFinder::checkFloor(NodePtr node) {
                            2;
     pair<Vector3d, int> raycast_result_mid2 =
         raycastOnRawMap(mid2, downwards, _max_ray_length);
-    if (raycast_result_mid2.second == -2) {
+    if (raycast_result_mid2.second == -2)
+    {
       // ROS_INFO("Floor not found within max_ray_length");
       return false;
     }
   }
 
   double parent_floor_height = node->seed_frontier->master_node->dis_to_floor;
-  if (fabs(floor_height - parent_floor_height) > _max_height_diff) {
+  if (fabs(floor_height - parent_floor_height) > _max_height_diff)
+  {
     // ROS_INFO("large diff from parent");
     // ROS_INFO("parent_floor_height: %f", parent_floor_height);
     // ROS_INFO("this floor_height: %f", floor_height);
@@ -1882,7 +2135,8 @@ bool SkeletonFinder::checkFloor(NodePtr node) {
   return true;
 }
 
-int SkeletonFinder::onCeilOrFloor(Eigen::Vector3d p) {
+int SkeletonFinder::onCeilOrFloor(Eigen::Vector3d p)
+{
   // On ceil
   if (fabs(p(2) - _z_max) < _search_margin)
     return 1;
@@ -1893,7 +2147,8 @@ int SkeletonFinder::onCeilOrFloor(Eigen::Vector3d p) {
   return 0;
 }
 
-bool SkeletonFinder::facetOnCeilOrFloor(FacetPtr f) {
+bool SkeletonFinder::facetOnCeilOrFloor(FacetPtr f)
+{
   return (onCeilOrFloor(f->vertices.at(0)->coord) == -1 &&
           onCeilOrFloor(f->vertices.at(1)->coord) == -1 &&
           onCeilOrFloor(f->vertices.at(2)->coord) == -1) ||
@@ -1902,7 +2157,8 @@ bool SkeletonFinder::facetOnCeilOrFloor(FacetPtr f) {
           onCeilOrFloor(f->vertices.at(2)->coord) == 1);
 }
 
-bool SkeletonFinder::checkSegClear(Eigen::Vector3d pos1, Eigen::Vector3d pos2) {
+bool SkeletonFinder::checkSegClear(Eigen::Vector3d pos1, Eigen::Vector3d pos2)
+{
   double length = (pos2 - pos1).norm();
   double step_length = _resolution;
 
@@ -1910,24 +2166,30 @@ bool SkeletonFinder::checkSegClear(Eigen::Vector3d pos1, Eigen::Vector3d pos2) {
   int num_steps = ceil(length / step_length);
 
   Eigen::Vector3d begin_pos = pos1;
-  for (int i = 0; i < num_steps; i++) {
+  for (int i = 0; i < num_steps; i++)
+  {
     Eigen::Vector3d check_pos = begin_pos + i * step;
-    if (collisionCheck(check_pos, _search_margin)) {
+    if (collisionCheck(check_pos, _search_margin))
+    {
       return false;
     }
   }
-  if (collisionCheck(pos2, _search_margin)) {
+  if (collisionCheck(pos2, _search_margin))
+  {
     return false;
   }
   return true;
 }
 
-double SkeletonFinder::getNodeRadius(NodePtr curNodePtr) {
+double SkeletonFinder::getNodeRadius(NodePtr curNodePtr)
+{
   double node_radius = 0;
-  for (VertexPtr bv : curNodePtr->black_vertices) {
+  for (VertexPtr bv : curNodePtr->black_vertices)
+  {
     node_radius += getDis(curNodePtr->coord, bv->coord);
   }
-  for (VertexPtr wv : curNodePtr->white_vertices) {
+  for (VertexPtr wv : curNodePtr->white_vertices)
+  {
     node_radius += getDis(curNodePtr->coord, wv->coord);
   }
   node_radius = node_radius / (double)(curNodePtr->black_vertices.size() +
@@ -1936,15 +2198,18 @@ double SkeletonFinder::getNodeRadius(NodePtr curNodePtr) {
   return node_radius;
 }
 
-double SkeletonFinder::getVerticesRadius(vector<Eigen::Vector3d> vertices) {
+double SkeletonFinder::getVerticesRadius(vector<Eigen::Vector3d> vertices)
+{
   Eigen::Vector3d center = Eigen::Vector3d::Zero();
-  for (Eigen::Vector3d v : vertices) {
+  for (Eigen::Vector3d v : vertices)
+  {
     center += v;
   }
   center = center / (double)vertices.size();
 
   double radius = 0;
-  for (Eigen::Vector3d v : vertices) {
+  for (Eigen::Vector3d v : vertices)
+  {
     radius += getDis(center, v);
   }
   radius = radius / (double)vertices.size();
@@ -1953,9 +2218,11 @@ double SkeletonFinder::getVerticesRadius(vector<Eigen::Vector3d> vertices) {
 }
 
 bool SkeletonFinder::checkPtOnFrontier(FrontierPtr ftr_ptr,
-                                       Eigen::Vector3d pt) {
+                                       Eigen::Vector3d pt)
+{
   int num_facet = ftr_ptr->facets.size();
-  for (int i = 0; i < num_facet; i++) {
+  for (int i = 0; i < num_facet; i++)
+  {
     FacetPtr facet = ftr_ptr->facets.at(i);
     if (checkPtOnFacet(facet, pt))
       return true;
@@ -1965,7 +2232,8 @@ bool SkeletonFinder::checkPtOnFrontier(FrontierPtr ftr_ptr,
   return false;
 }
 
-bool SkeletonFinder::checkPtOnFacet(FacetPtr facet, Eigen::Vector3d pt) {
+bool SkeletonFinder::checkPtOnFacet(FacetPtr facet, Eigen::Vector3d pt)
+{
   // Take any point on the plane
   Eigen::Vector3d origin = facet->vertices.at(0)->coord;
   Eigen::Vector3d origin_to_pt = pt - origin;
@@ -1990,8 +2258,10 @@ bool SkeletonFinder::checkPtOnFacet(FacetPtr facet, Eigen::Vector3d pt) {
 }
 
 FrontierPtr SkeletonFinder::findFlowBackFrontier(Eigen::Vector3d pos,
-                                                 int index) {
-  for (FrontierPtr f : center_NodeList.at(index)->frontiers) {
+                                                 int index)
+{
+  for (FrontierPtr f : center_NodeList.at(index)->frontiers)
+  {
     if (getDis(pos, f->proj_center) > 2 * _max_ray_length)
       continue;
     if (checkPtOnFrontier(f, pos))
@@ -2001,8 +2271,10 @@ FrontierPtr SkeletonFinder::findFlowBackFrontier(Eigen::Vector3d pos,
   return NULL;
 }
 
-FacetPtr SkeletonFinder::findFlowBackFacet(Eigen::Vector3d pos, int index) {
-  for (FacetPtr f : center_NodeList.at(index)->facets) {
+FacetPtr SkeletonFinder::findFlowBackFacet(Eigen::Vector3d pos, int index)
+{
+  for (FacetPtr f : center_NodeList.at(index)->facets)
+  {
     if (getDis(pos, f->center) > 2 * _max_ray_length)
       continue;
     if (checkPtOnFacet(f, pos))
@@ -2012,12 +2284,14 @@ FacetPtr SkeletonFinder::findFlowBackFacet(Eigen::Vector3d pos, int index) {
   return NULL;
 }
 
-bool SkeletonFinder::checkWithinBbx(Eigen::Vector3d pos) {
+bool SkeletonFinder::checkWithinBbx(Eigen::Vector3d pos)
+{
   return pos(0) >= _x_min && pos(1) >= _y_min && pos(2) >= _z_min &&
          pos(0) <= _x_max && pos(1) <= _y_max && pos(2) <= _z_max;
 }
 
-void SkeletonFinder::addBbxToMap(pcl::PointCloud<pcl::PointXYZ> &map) {
+void SkeletonFinder::addBbxToMap(pcl::PointCloud<pcl::PointXYZ> &map)
+{
   double x_length = _x_max - _x_min;
   double y_length = _y_max - _y_min;
   // double z_length = _z_max - _z_min;
@@ -2025,18 +2299,25 @@ void SkeletonFinder::addBbxToMap(pcl::PointCloud<pcl::PointXYZ> &map) {
   int y_num = ceil(y_length / _resolution) + 1;
   // int z_num = ceil(z_length / _resolution) + 1;
 
-  if (_is_simulation) { // Add ceiling and floor to search map
-    for (int i = 0; i < x_num; i++) {
-      for (int j = 0; j < y_num; j++) {
+  if (_is_simulation)
+  { // Add ceiling and floor to search map
+    for (int i = 0; i < x_num; i++)
+    {
+      for (int j = 0; j < y_num; j++)
+      {
         map.points.push_back(pcl::PointXYZ(_x_min + _resolution * i,
                                            _y_min + _resolution * j, _z_min));
         map.points.push_back(pcl::PointXYZ(_x_min + _resolution * i,
                                            _y_min + _resolution * j, _z_max));
       }
     }
-  } else { // Add only ceiling to search map
-    for (int i = 0; i < x_num; i++) {
-      for (int j = 0; j < y_num; j++) {
+  }
+  else
+  { // Add only ceiling to search map
+    for (int i = 0; i < x_num; i++)
+    {
+      for (int j = 0; j < y_num; j++)
+      {
         map.points.push_back(pcl::PointXYZ(_x_min + _resolution * i,
                                            _y_min + _resolution * j, _z_max));
       }
@@ -2046,7 +2327,8 @@ void SkeletonFinder::addBbxToMap(pcl::PointCloud<pcl::PointXYZ> &map) {
 
 /* -------------------- visualization ------------------- */
 
-void SkeletonFinder::visualization() {
+void SkeletonFinder::visualization()
+{
   visStart();
   visNodesAndVertices();
   visPolygons();
@@ -2055,14 +2337,16 @@ void SkeletonFinder::visualization() {
   visConnections();
 }
 
-void SkeletonFinder::visNodesAndVertices() {
+void SkeletonFinder::visNodesAndVertices()
+{
   // nodes_pcl.clear();
   black_vertices_pcl.clear();
   white_vertices_pcl.clear();
   grey_vertices_pcl.clear();
 
   int num_nodes = NodeList.size();
-  for (int i = num_nodes - 1; i >= 0; i--) {
+  for (int i = num_nodes - 1; i >= 0; i--)
+  {
     if (NodeList.at(i)->rollbacked)
       continue;
     if (NodeList.at(i)->isGate)
@@ -2071,16 +2355,21 @@ void SkeletonFinder::visNodesAndVertices() {
     // NodeList.at(i)->coord(1),
     //                                          NodeList.at(i)->coord(2)));
 
-    for (VertexPtr v : NodeList.at(i)->black_vertices) {
-      if (v->type == BLACK) {
+    for (VertexPtr v : NodeList.at(i)->black_vertices)
+    {
+      if (v->type == BLACK)
+      {
         black_vertices_pcl.points.push_back(
             pcl::PointXYZ(v->coord(0), v->coord(1), v->coord(2)));
-      } else {
+      }
+      else
+      {
         grey_vertices_pcl.points.push_back(
             pcl::PointXYZ(v->coord(0), v->coord(1), v->coord(2)));
       }
     }
-    for (VertexPtr v : NodeList.at(i)->white_vertices) {
+    for (VertexPtr v : NodeList.at(i)->white_vertices)
+    {
       white_vertices_pcl.points.push_back(
           pcl::PointXYZ(v->coord(0), v->coord(1), v->coord(2)));
     }
@@ -2106,7 +2395,8 @@ void SkeletonFinder::visNodesAndVertices() {
   vis_grey_vertices_pub.publish(grey_vertices_pcl_ros);
 }
 
-void SkeletonFinder::visMap() {
+void SkeletonFinder::visMap()
+{
   pcl::toROSMsg(vis_map_pcl, map_pcl_ros);
   map_pcl_ros.header.frame_id = "map";
   map_pcl_ros.height = 1;
@@ -2114,7 +2404,8 @@ void SkeletonFinder::visMap() {
   vis_map_pub.publish(map_pcl_ros);
 }
 
-void SkeletonFinder::visPolygons() {
+void SkeletonFinder::visPolygons()
+{
   visualization_msgs::Marker polygons;
 
   polygons.header.frame_id = "map";
@@ -2129,15 +2420,19 @@ void SkeletonFinder::visPolygons() {
 
   int num_nodes = NodeList.size();
 
-  for (int i = num_nodes - 1; i >= 0; i--) {
+  for (int i = num_nodes - 1; i >= 0; i--)
+  {
     if (NodeList.at(i)->rollbacked)
       continue;
     if (NodeList.at(i)->isGate)
       continue;
 
-    if (_visualize_black_polygon) {
-      for (FacetPtr facet : NodeList.at(i)->facets) {
-        for (int j = 0; j < 3; j++) {
+    if (_visualize_black_polygon)
+    {
+      for (FacetPtr facet : NodeList.at(i)->facets)
+      {
+        for (int j = 0; j < 3; j++)
+        {
           geometry_msgs::Point p1, p2;
           p1.x = facet->vertices.at(j)->coord(0);
           p1.y = facet->vertices.at(j)->coord(1);
@@ -2150,13 +2445,17 @@ void SkeletonFinder::visPolygons() {
           polygons.points.push_back(p2);
         }
       }
-    } else {
-      for (VertexPtr v : NodeList.at(i)->white_vertices) {
+    }
+    else
+    {
+      for (VertexPtr v : NodeList.at(i)->white_vertices)
+      {
         geometry_msgs::Point p1, p2;
         p1.x = v->coord(0);
         p1.y = v->coord(1);
         p1.z = v->coord(2);
-        for (VertexPtr v_nbhd : v->connected_vertices) {
+        for (VertexPtr v_nbhd : v->connected_vertices)
+        {
           p2.x = v_nbhd->coord(0);
           p2.y = v_nbhd->coord(1);
           p2.z = v_nbhd->coord(2);
@@ -2190,7 +2489,8 @@ void SkeletonFinder::visPolygons() {
   vis_polygons_pub.publish(polygons);
 }
 
-void SkeletonFinder::visFrontiers() {
+void SkeletonFinder::visFrontiers()
+{
   visualization_msgs::Marker frontiers;
 
   frontiers.header.frame_id = "map";
@@ -2205,18 +2505,21 @@ void SkeletonFinder::visFrontiers() {
   frontiers.color.a = 0.4;
 
   int num_nodes = NodeList.size();
-  for (int i = num_nodes - 1; i >= 0; i--) {
+  for (int i = num_nodes - 1; i >= 0; i--)
+  {
     if (NodeList.at(i)->rollbacked)
       continue;
     if (NodeList.at(i)->isGate)
       continue;
 
-    for (FrontierPtr ftr : NodeList.at(i)->frontiers) {
+    for (FrontierPtr ftr : NodeList.at(i)->frontiers)
+    {
       if (ftr->deleted)
         continue;
 
       // Visualize outwards normal of frontier
-      if (_visualize_outwards_normal) {
+      if (_visualize_outwards_normal)
+      {
         geometry_msgs::Point normal;
         normal.x = ftr->outwards_unit_normal(0) + ftr->proj_center(0);
         normal.y = ftr->outwards_unit_normal(1) + ftr->proj_center(1);
@@ -2230,7 +2533,8 @@ void SkeletonFinder::visFrontiers() {
         frontiers.points.push_back(center);
       }
 
-      for (FacetPtr facet : ftr->facets) {
+      for (FacetPtr facet : ftr->facets)
+      {
         /*
         // Visualize facet connections
         if (_visualize_nbhd_facets) {
@@ -2251,7 +2555,8 @@ void SkeletonFinder::visFrontiers() {
         */
 
         // Visualize edges of a facet
-        for (int j = 0; j < 3; j++) {
+        for (int j = 0; j < 3; j++)
+        {
           geometry_msgs::Point p1, p2;
           p1.x = facet->vertices.at(j)->coord(0);
           p1.y = facet->vertices.at(j)->coord(1);
@@ -2271,7 +2576,8 @@ void SkeletonFinder::visFrontiers() {
   vis_frontiers_pub.publish(frontiers);
 }
 
-void SkeletonFinder::visCurrentFrontier(FrontierPtr ftr) {
+void SkeletonFinder::visCurrentFrontier(FrontierPtr ftr)
+{
   visualization_msgs::Marker frontiers;
 
   frontiers.header.frame_id = "map";
@@ -2296,8 +2602,10 @@ void SkeletonFinder::visCurrentFrontier(FrontierPtr ftr) {
   frontiers.points.push_back(normal);
   frontiers.points.push_back(center);
 
-  for (FacetPtr facet : ftr->facets) {
-    for (int j = 0; j < 3; j++) {
+  for (FacetPtr facet : ftr->facets)
+  {
+    for (int j = 0; j < 3; j++)
+    {
       geometry_msgs::Point p1, p2;
       p1.x = facet->vertices.at(j)->coord(0);
       p1.y = facet->vertices.at(j)->coord(1);
@@ -2313,7 +2621,8 @@ void SkeletonFinder::visCurrentFrontier(FrontierPtr ftr) {
   vis_cur_frontier_pub.publish(frontiers);
 }
 
-void SkeletonFinder::visConnections() {
+void SkeletonFinder::visConnections()
+{
   visualization_msgs::Marker connections;
 
   connections.header.frame_id = "map";
@@ -2330,7 +2639,8 @@ void SkeletonFinder::visConnections() {
   int connection_count = 0;
 
   int num_nodes = NodeList.size();
-  for (int i = 0; i < num_nodes; i++) {
+  for (int i = 0; i < num_nodes; i++)
+  {
     NodePtr cur_node = NodeList.at(i);
     if (cur_node->rollbacked)
       continue;
@@ -2348,7 +2658,8 @@ void SkeletonFinder::visConnections() {
     //   cur_node->coord(0),
     //            cur_node->coord(1), cur_node->coord(2), num_connect_nodes);
     // }
-    for (int j = 0; j < num_connect_nodes; j++) {
+    for (int j = 0; j < num_connect_nodes; j++)
+    {
       NodePtr connect_node = cur_node->connected_Node_ptr.at(j);
 
       geometry_msgs::Point p1, p2;
@@ -2370,7 +2681,8 @@ void SkeletonFinder::visConnections() {
   // ROS_WARN("Eval: Vertices: %d, Edges: %d", node_count, connection_count);
 }
 
-void SkeletonFinder::visSphere(Eigen::Vector3d pos, double radius) {
+void SkeletonFinder::visSphere(Eigen::Vector3d pos, double radius)
+{
   visualization_msgs::Marker sphere;
   sphere.header.frame_id = "map";
   sphere.action = visualization_msgs::Marker::ADD;
@@ -2389,7 +2701,8 @@ void SkeletonFinder::visSphere(Eigen::Vector3d pos, double radius) {
   vis_spheres_pub.publish(sphere);
 }
 
-void SkeletonFinder::visPath() {
+void SkeletonFinder::visPath()
+{
   visualization_msgs::Marker vis_path;
 
   vis_path.header.frame_id = "map";
@@ -2403,7 +2716,8 @@ void SkeletonFinder::visPath() {
   vis_path.color.a = 1.0;
 
   int num = path.size();
-  for (int i = 0; i < num - 1; i++) {
+  for (int i = 0; i < num - 1; i++)
+  {
     Eigen::Vector3d head = path.at(i);
     Eigen::Vector3d tail = path.at(i + 1);
 
@@ -2422,7 +2736,8 @@ void SkeletonFinder::visPath() {
   vis_path_pub.publish(vis_path);
 }
 
-void SkeletonFinder::visStart() {
+void SkeletonFinder::visStart()
+{
   visualization_msgs::Marker marker;
 
   marker.header.frame_id = "map";

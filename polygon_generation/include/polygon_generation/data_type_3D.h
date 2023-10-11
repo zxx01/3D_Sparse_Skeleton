@@ -19,9 +19,15 @@ struct Node;
 typedef Node *NodePtr;
 
 typedef quickhull::Vector3<double> vec3;
-enum vertex_type { WHITE, BLACK, GREY };
+enum vertex_type
+{
+  WHITE,
+  BLACK,
+  GREY
+};
 
-struct Vertex {
+struct Vertex
+{
   Eigen::Vector3d coord;
   Eigen::Vector3d dire_unit_sphere;
   vertex_type type;
@@ -33,7 +39,8 @@ struct Vertex {
   int sampling_dire_index;
   double dis_to_center;
 
-  Vertex(Eigen::Vector3d coord_, Eigen::Vector3d dire_unit_sphere_, vertex_type type_) {
+  Vertex(Eigen::Vector3d coord_, Eigen::Vector3d dire_unit_sphere_, vertex_type type_)
+  {
     coord = coord_;
     dire_unit_sphere = dire_unit_sphere_;
     type = type_;
@@ -47,7 +54,8 @@ struct Vertex {
   ~Vertex() {}
 };
 
-struct Facet {
+struct Facet
+{
   int index;
   vector<VertexPtr> vertices;
 
@@ -72,7 +80,8 @@ struct Facet {
   vector<FacetPtr> nbhd_facets;
   vector<FacetPtr> nbhd_invalid_facets;
 
-  Facet(vector<VertexPtr> vertices_, NodePtr master_node_) {
+  Facet(vector<VertexPtr> vertices_, NodePtr master_node_)
+  {
     vertices = vertices_;
     master_node = master_node_;
 
@@ -104,7 +113,8 @@ struct Facet {
   ~Facet() {}
 };
 
-struct Frontier {
+struct Frontier
+{
   int index;
   vector<FacetPtr> facets;
   vector<VertexPtr> vertices;
@@ -132,14 +142,16 @@ struct Frontier {
   NodePtr master_node;
   NodePtr gate_node;
 
-  Frontier(vector<FacetPtr> facets_, NodePtr master_node_) {
+  Frontier(vector<FacetPtr> facets_, NodePtr master_node_)
+  {
     facets = facets_;
     master_node = master_node_;
 
     int num_facet = facets.size();
     Eigen::Vector3d coord_sum = Eigen::Vector3d::Zero();
     Eigen::Vector3d normal_sum = Eigen::Vector3d::Zero();
-    for (int i = 0; i < num_facet; i++) {
+    for (int i = 0; i < num_facet; i++)
+    {
       coord_sum += facets.at(i)->center;
       normal_sum += facets.at(i)->outwards_unit_normal;
     }
@@ -156,7 +168,8 @@ struct Frontier {
   ~Frontier() {}
 };
 
-struct Node {
+struct Node
+{
   int index;
   Eigen::Vector3d coord;
   Eigen::Vector3d original_coord;
@@ -179,7 +192,8 @@ struct Node {
 
   // pcl::search::KdTree<pcl::PointXYZ> polyhedron;
 
-  Node(Eigen::Vector3d coord_, FrontierPtr seed_frontier_, bool isGate_ = false) {
+  Node(Eigen::Vector3d coord_, FrontierPtr seed_frontier_, bool isGate_ = false)
+  {
     coord = coord_;
     original_coord = coord_;
     seed_frontier = seed_frontier_;

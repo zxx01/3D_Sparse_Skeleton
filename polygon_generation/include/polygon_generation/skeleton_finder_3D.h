@@ -28,12 +28,14 @@
 #include "polygon_generation/backward.hpp"
 #include "polygon_generation/data_type_3D.h"
 
-inline bool compareFrontier(FrontierPtr f1, FrontierPtr f2) {
+inline bool compareFrontier(FrontierPtr f1, FrontierPtr f2)
+{
   return f1->facets.size() > f2->facets.size();
 }
 
-class SkeletonFinder {
- private:
+class SkeletonFinder
+{
+private:
   vector<shared_ptr<pcl::search::KdTree<pcl::PointXYZ>>> kdtreesForPolys;
   pcl::search::KdTree<pcl::PointXYZ> kdtreeForRawMap;
   pcl::search::KdTree<pcl::PointXYZ> kdtreeForVisMap;
@@ -50,8 +52,8 @@ class SkeletonFinder {
   // including obstacles, excluding bounding box
   pcl::PointCloud<pcl::PointXYZ> vis_map_pcl;
 
-  kdtree *kdTree_;  // dynamic light-weight Kd-tree, for organizing the nodes in
-                    // the skeleton
+  kdtree *kdTree_; // dynamic light-weight Kd-tree, for organizing the nodes in
+                   // the skeleton
 
   a_star::AStar path_finder;
 
@@ -172,7 +174,7 @@ class SkeletonFinder {
   // map's boundary
   uniform_real_distribution<double> rand_x_in, rand_y_in, rand_z_in;
 
- public:
+public:
   SkeletonFinder();
   ~SkeletonFinder();
 
@@ -251,7 +253,8 @@ class SkeletonFinder {
   //   pending_nodes.pop_front();
   //   return curNodePtr;
   // };
-  FrontierPtr pendingFrontiersPopFront() {
+  FrontierPtr pendingFrontiersPopFront()
+  {
     FrontierPtr curFrontierPtr = pending_frontiers.front();
     pending_frontiers.pop_front();
     return curFrontierPtr;
