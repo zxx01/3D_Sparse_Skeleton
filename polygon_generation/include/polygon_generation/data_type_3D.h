@@ -139,7 +139,9 @@ struct Frontier
   bool valid;
   bool deleted;
 
+  // The node to which frontier belongs
   NodePtr master_node;
+  // The node on frontier
   NodePtr gate_node;
 
   Frontier(vector<FacetPtr> facets_, NodePtr master_node_)

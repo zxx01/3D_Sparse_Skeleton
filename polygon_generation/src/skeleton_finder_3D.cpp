@@ -99,11 +99,19 @@ inline double SkeletonFinder::getDis(const Vector3i &p1, const Vector3i &p2)
                        pow(p1(2) - p2(2), 2)));
 }
 
+/**
+ * @brief 查找指定位置附近的最近障碍物或是最近的历史黑白节点，并计算相关距离和障碍物(-1)或节点(noed_id)的索引
+ *
+ * @param search_Pt 指定位置
+ * @return pair<double, int>
+ */
 inline pair<double, int> SkeletonFinder::radiusSearch(Vector3d &search_Pt)
 {
+  // 1.计算 search_Pt 距离最近的障碍物点的距离 min_dis
   double min_dis = radiusSearchOnRawMap(search_Pt);
   int min_dis_node_index = -1;
 
+  // 2.如果 min_dis 小于 _search_margin，表示在位置 search_Pt 处存在点云中的障碍物
   if (min_dis < _search_margin)
   {
     pair<double, int> return_pair(min_dis, min_dis_node_index);
@@ -120,6 +128,9 @@ inline pair<double, int> SkeletonFinder::radiusSearch(Vector3d &search_Pt)
   searchPoint.y = search_Pt(1);
   searchPoint.z = search_Pt(2);
 
+  // 3.遍历每一个现有节点，如果已有节点中的某个黑白节点到search_Pt的距离比最近的障碍物点的距离更近，
+  // 则将 min_dis更新为到最近黑白节点的距离。
+  // 即 min_dis = min(最近障碍物距离，最近黑白节点距离)
   for (NodePtr node : NodeList)
   {
     if (node->rollbacked || node->isGate)
@@ -147,6 +158,12 @@ inline pair<double, int> SkeletonFinder::radiusSearch(Vector3d &search_Pt)
   return return_pair;
 }
 
+/**
+ * @brief 在给定的 search_Pt（搜索点）附近，搜索地图中最近的点，以获取到最近点的距离（radius）
+ *
+ * @param search_Pt 给定的 search_Pt（搜索点）
+ * @return double
+ */
 inline double SkeletonFinder::radiusSearchOnRawMap(Vector3d &search_Pt)
 {
   //   if (getDis(search_Pt, start_pt) > sample_range + max_radius)
@@ -167,6 +184,14 @@ inline double SkeletonFinder::radiusSearchOnRawMap(Vector3d &search_Pt)
   return radius;
 }
 
+/**
+ * @brief 检查给定点是否与地图上的障碍物发生碰撞
+ *
+ * @param search_pt 给定点
+ * @param threshold 碰撞阈值
+ * @return true
+ * @return false
+ */
 bool SkeletonFinder::collisionCheck(Vector3d search_pt, double threshold)
 {
   // Point cloud map
@@ -181,6 +206,13 @@ bool SkeletonFinder::collisionCheck(Vector3d search_pt, double threshold)
   // Won't reach
   return true;
 }
+
+/**
+ * @brief 将新节点（new_node）记录到 NodeList 和 nodes_pcl 中，如果 new_node 是多面体的主节点，
+ *        还需要将 new_node 添加到 center_NodeList中.
+ *
+ * @param new_node 待处理的新节点
+ */
 void SkeletonFinder::recordNode(NodePtr new_node)
 {
   NodeList.push_back(new_node);
@@ -256,14 +288,19 @@ void SkeletonFinder::init(ros::NodeHandle &n)
       n.advertise<visualization_msgs::Marker>("/skeleton_finder_3D/start", 1);
 }
 
-void SkeletonFinder::mapCallBack(
-    const sensor_msgs::PointCloud2 &pointcloud_map)
+/**
+ * @brief 处理地图数据，执行骨架扩展操作，可视化结果，然后执行路径查找，并最终可视化路径.
+ *
+ * @param pointcloud_map 原始地图点云数据
+ */
+void SkeletonFinder::mapCallBack(const sensor_msgs::PointCloud2 &pointcloud_map)
 {
   if (callback_executed)
     return;
 
   callback_executed = true;
 
+  // 1.接收原始地图点云
   pcl::fromROSMsg(pointcloud_map, map_pcl);
   pcl::fromROSMsg(pointcloud_map, raw_map_pcl);
 
@@ -273,6 +310,8 @@ void SkeletonFinder::mapCallBack(
     return;
   }
   ROS_INFO("map_pcl size: %d", (int)map_pcl.points.size());
+
+  // 2.筛除高度小于0.2的点云
   for (int i = 0; i < (int)map_pcl.points.size(); i++)
   {
     if (map_pcl.points[i].z < 0.2)
@@ -285,6 +324,7 @@ void SkeletonFinder::mapCallBack(
   vis_map_pcl.height = 1;
   // ROS_INFO("vis_map size: %d", vis_map_pcl.points.size());
 
+  // 3.添加天花板(和地板)约束
   addBbxToMap(raw_map_pcl);
   addBbxToMap(map_pcl);
 
@@ -302,6 +342,7 @@ void SkeletonFinder::mapCallBack(
   Eigen::Vector3d start;
   start << _start_x, _start_y, _start_z;
 
+  // 4.扩展骨架图
   ROS_INFO("Generating skeleton...");
   ros::Time begin = ros::Time::now();
   skeletonExpansion(start);
@@ -364,10 +405,20 @@ void SkeletonFinder::mapCallBack(
   }
 }
 
+/**
+ * @brief
+ *
+ * @param startPt
+ */
 void SkeletonFinder::skeletonExpansion(Eigen::Vector3d startPt)
 {
+  // 1.在单位球面上生成一组采样点(均匀分布的方向向量)
   genSamplesOnUnitSphere();
+
+  // 2.生成凸包(convex hull)，并根据生成的凸包提取多边形的方向
   identifyBwFacets();
+
+  //
   setStartPt(startPt);
   // ROS_INFO("Start point set!");
 
@@ -506,10 +557,13 @@ bool SkeletonFinder::initNode(NodePtr curNodePtr)
   ros::Time prev = begin;
   ros::Time curr;
 
+  // 1.检查 curNodePtr->coord 是否在地图边界框范围内
   if (!checkWithinBbx(curNodePtr->coord))
   {
     return false;
   }
+
+  // 2.确保机器人在路径规划和环境感知中了解自身与地面的相对高度，以避免碰撞或飞得太高或太低。
   if (!checkFloor(curNodePtr))
   {
     // ROS_ERROR("No floor! Absort.");
@@ -523,6 +577,7 @@ bool SkeletonFinder::initNode(NodePtr curNodePtr)
     // curNodePtr->coord(1),
     //           curNodePtr->coord(2));
 
+    // 3.为给定节点生成一组黑色和白色的顶点
     genBlackAndWhiteVertices(curNodePtr);
 
     curr = ros::Time::now();
@@ -536,12 +591,14 @@ bool SkeletonFinder::initNode(NodePtr curNodePtr)
       return false;
     }
 
+    // 4.根据当前node的所有黑色顶点更新多面体中心位置
     centralizeNodePos(curNodePtr);
 
     curr = ros::Time::now();
     centralizeNodePos_timing += (curr - prev).toSec();
     prev = curr;
 
+    // 5.计算给定节点 curNodePtr 的半径，半径小于阈值且白色顶点数量为空，丢弃 curNodePtr
     double radius = getNodeRadius(curNodePtr);
     if (radius < _min_node_radius && curNodePtr->white_vertices.empty())
     {
@@ -550,7 +607,7 @@ bool SkeletonFinder::initNode(NodePtr curNodePtr)
       return false;
     }
 
-    // Absorb node inside node
+    // 6.如果 curNodePtr 的多面体整体被一个已有的node的多面体包围，就丢弃 curNodePtr
     if (curNodePtr->seed_frontier != NULL)
     {
       bool diff_ind = false;
@@ -567,12 +624,14 @@ bool SkeletonFinder::initNode(NodePtr curNodePtr)
         return false;
     }
 
+    // FlowBack操作，构建回环
     findFlowBack(curNodePtr);
 
     curr = ros::Time::now();
     findFlowBack_timing += (curr - prev).toSec();
     prev = curr;
 
+    // 标识当前节点的各个面上的顶点之间的连接关系
     identifyFacets(curNodePtr);
 
     curr = ros::Time::now();
@@ -599,18 +658,28 @@ bool SkeletonFinder::initNode(NodePtr curNodePtr)
   return true;
 }
 
+/**
+ * @brief 为给定节点生成一组黑色和白色的顶点，以表示在不同方向上检测到的障碍物或自由空间。
+ *
+ * @param nodePtr 给定节点
+ */
 void SkeletonFinder::genBlackAndWhiteVertices(NodePtr nodePtr)
 {
   // vector<VertexPtr> black;
   vector<Eigen::Vector3d>::iterator it;
   for (it = sample_directions.begin(); it != sample_directions.end(); it++)
   {
+    // 1.遍历 sample_directions 中的每个方向向量
     int index = nodePtr->sampling_directions.size();
     nodePtr->sampling_directions.push_back(vec3((*it)(0), (*it)(1), (*it)(2)));
 
+    // 2.从节点 nodePtr 位置出发，沿该方向向量进行射线投射，最远可达 _max_ray_length 的距离，
+    // 如果没有碰撞：pair<投射起点, -2>, 碰撞障碍物：pair<碰撞位置, -1>，碰撞节点：pair<碰撞位置, 节点id>
     pair<Vector3d, int> raycast_result =
         raycast(nodePtr->coord, *it, _max_ray_length);
     Eigen::Vector3d newVertex = raycast_result.first;
+
+    // 3.没有碰撞，构建白色顶点；碰撞了，构建黑色顶点
     if (raycast_result.second == -2)
     {
       newVertex += (*it) * _max_ray_length;
@@ -658,9 +727,14 @@ void SkeletonFinder::genBlackAndWhiteVertices(NodePtr nodePtr)
   // }
 }
 
+/**
+ * @brief 在单位球面上生成一组采样点(均匀分布的方向向量)
+ *
+ */
 void SkeletonFinder::genSamplesOnUnitSphere()
 {
   // Fibonicci sphere
+  // 使用黄金分割比例生成球面采样点：这是一种使用黄金分割比例生成均匀分布的点的技巧
   double phi = M_PI * (3 - sqrt(5));
   double x, y, z, radius, theta;
 
@@ -678,19 +752,29 @@ void SkeletonFinder::genSamplesOnUnitSphere()
   }
 }
 
-// -2: collision not found within cut_off_length
-// -1: collision is with map
-// >=0: collision is with the node of that index
+/**
+ * @brief 从给定的射线源点 ray_source 沿着指定的方向 direction 进行射线投射，以检测是否与障碍物和历史黑白节点发生碰撞.
+ *        -2: collision not found within cut_off_length.
+ *        -1: collision is with map.
+ *        >=0: collision is with the node of that index.
+ * @param ray_source  射线起点
+ * @param direction   方向
+ * @param cut_off_length  投射截断距离
+ * @return pair<Vector3d, int>
+ */
 pair<Vector3d, int> SkeletonFinder::raycast(Vector3d ray_source,
                                             Vector3d direction,
                                             double cut_off_length)
 {
   double clearance = radiusSearch(ray_source).first;
+
+  // 1.射线在截断距离内不会命中任何物体
   if (clearance > cut_off_length)
   {
     pair<Vector3d, int> return_pair(ray_source, -2);
     return return_pair;
   }
+  // 2.在指定direction上前进clearance步长，接着继续迭代进一步判断
   else
   {
     // Eigen::Vector3d offset = _resolution * direction;
@@ -726,8 +810,15 @@ pair<Vector3d, int> SkeletonFinder::raycast(Vector3d ray_source,
   }
 }
 
-// -2: collision not found within cut_off_length
-// -1: collision is with map
+/**
+ * @brief 在给定地图（raw_map_pcl）上进行射线投射，以查找射线与地图中的障碍物的交点。
+ *        -2: collision not found within cut_off_length
+ *        -1: collision is with map
+ * @param ray_source 射线的起始点
+ * @param direction 射线的方向向量
+ * @param cut_off_length 射线的最大长度(最大检测范围)
+ * @return pair<Vector3d, int>
+ */
 pair<Vector3d, int> SkeletonFinder::raycastOnRawMap(Vector3d ray_source,
                                                     Vector3d direction,
                                                     double cut_off_length)
@@ -735,12 +826,14 @@ pair<Vector3d, int> SkeletonFinder::raycastOnRawMap(Vector3d ray_source,
   // Point cloud map
   if (_map_representation == 0)
   {
+    // 1.地图上以ray_source为圆心的cut_off_length半径范围内没有任何障碍物
     double clearance = radiusSearchOnRawMap(ray_source);
     if (clearance > cut_off_length)
     {
       pair<Vector3d, int> return_pair(ray_source, -2);
       return return_pair;
     }
+    // 2.以ray_source为圆心的cut_off_length半径范围内有障碍物，不断迭代该过程
     else
     {
       Eigen::Vector3d current_pos = ray_source + clearance * direction;
@@ -750,6 +843,7 @@ pair<Vector3d, int> SkeletonFinder::raycastOnRawMap(Vector3d ray_source,
       {
         double radius = radiusSearchOnRawMap(current_pos);
 
+        // 如果radius小于_search_margin，则表示射线在当前位置 current_pos 处与地图上的障碍物相交。
         if (radius < _search_margin)
         {
           pair<Vector3d, int> return_pair(current_pos, -1);
@@ -768,6 +862,11 @@ pair<Vector3d, int> SkeletonFinder::raycastOnRawMap(Vector3d ray_source,
   return temp;
 }
 
+/**
+ * @brief 根据当前node的所有黑色顶点更新多面体中心位置
+ *
+ * @param node
+ */
 void SkeletonFinder::centralizeNodePos(NodePtr node)
 {
   int cnt = 0;
@@ -783,6 +882,10 @@ void SkeletonFinder::centralizeNodePos(NodePtr node)
   node->coord = sum / cnt;
 }
 
+/**
+ * @brief 使用了 QuickHull 算法，该算法用于生成凸包(convex hull)，并根据生成的凸包提取多边形的方向
+ *
+ */
 void SkeletonFinder::identifyBwFacets()
 {
   // Mesh2 is for black and white polygon
@@ -812,6 +915,11 @@ void SkeletonFinder::identifyBwFacets()
   }
 }
 
+/**
+ * @brief 标识节点（node）的各个面（facet）上的顶点之间的连接关系
+ *
+ * @param node 给定节点
+ */
 void SkeletonFinder::identifyFacets(NodePtr node)
 {
   for (vector<Eigen::Vector3d> facet_vertices : bw_facets_directions)
@@ -828,6 +936,8 @@ void SkeletonFinder::identifyFacets(NodePtr node)
 
 void SkeletonFinder::identifyFrontiers(NodePtr node)
 {
+  // 1.分组黑色顶点: 对节点的白色顶点进行迭代，对于每个白色顶点，它会查找与该顶点连接的黑色顶点。
+  // 概括：找出每一片连续的白色顶点的边界上的黑色顶点，一片连续的白色顶点找到的一圈连续的黑色顶点为一个 group
   vector<vector<VertexPtr>> bv_groups;
   int num_wv = node->white_vertices.size();
   for (int i = 0; i < num_wv; i++)
@@ -880,10 +990,12 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
     bv_groups.push_back(group_bv);
   }
 
-  // Filter black vertices
+  // 2.Filter black vertices
+  // 遍历每一 group 的黑色顶点，
   int num_groups = bv_groups.size();
   for (int i = 0; i < num_groups; i++)
   {
+    // 2.1 每组黑色顶点，计算出平均距离mean_length，并确定一个容忍度tolerance
     double mean_length = 0;
     double tolerance;
     for (VertexPtr v : bv_groups.at(i))
@@ -892,6 +1004,9 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
     }
     mean_length /= bv_groups.at(i).size();
     tolerance = mean_length * 0.3;
+
+    // 2.2 根据黑色顶点到中心的距离，标记一组黑色顶点中的最远和最近的黑色顶点，并将它们的类型设置为灰色 (GREY)，
+    // 同时取消它们的 critical 属性，去除噪声点？
     int longest_index = -1;
     int shortest_index = -1;
     double longest = 0;
@@ -931,7 +1046,8 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
     }
   }
 
-  // Inflate critical black vertices
+  // 3.Inflate critical black vertices
+  // 对于每组黑色顶点，它将每个黑色顶点连接的黑色顶点都标记为临界（critical）顶点。
   for (int i = 0; i < num_groups; i++)
   {
     for (VertexPtr v : bv_groups.at(i))
@@ -944,7 +1060,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
     }
   }
 
-  // Mesh1 is for only black polygon
+  // 4.Mesh1 is for only black polygon --> node->facets
   vector<vec3> bv_for_mesh;
   for (VertexPtr bv : node->black_vertices)
   {
@@ -985,7 +1101,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
   }
   // ROS_ERROR("identifyFacets: %d", node->facets.size());
 
-  // Calculate outwards normal for each facet
+  // 5.Calculate outwards normal for each facet
   int num_facet = node->facets.size();
   for (int i = 0; i < num_facet; i++)
   {
@@ -1005,7 +1121,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
       facet_ptr->outwards_unit_normal = candidate_normal;
   }
 
-  // Create frontiers given group black vertices
+  // 6.Create frontiers given group black vertices
   for (int i = 0; i < num_groups; i++)
   {
     vector<FacetPtr> group_facets =
@@ -1059,7 +1175,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
     }
   }
 
-  // Add bv_group for those connecting bvs having big diff in dis_to_center
+  // 7.Add bv_group for those connecting bvs having big diff in dis_to_center
   vector<FacetPtr> jump_facets;
   for (FacetPtr facet : node->facets)
   {
@@ -1132,7 +1248,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
     // }
   }
 
-  // Wish to expand frontier with more facets first
+  // 8.Wish to expand frontier with more facets first
   sort(node->frontiers.begin(), node->frontiers.end(), compareFrontier);
   for (FrontierPtr f : node->frontiers)
   {
@@ -1367,18 +1483,26 @@ SkeletonFinder::findGroupFacetsFromVertices(NodePtr node,
   return group_facets;
 }
 
+/**
+ * @brief 在给定条件下的FlowBack操作，首先根据碰撞的黑色顶点找到相关的frontier，
+ *        然后按照一定的规则对frontier进行排序，最后处理每个frontier以构建或维护节点之间的连接关系。
+ *
+ * @param node 给定节点
+ */
 void SkeletonFinder::findFlowBack(NodePtr node)
 {
   if (node->seed_frontier == NULL)
     return;
   // vector<int> loop_frontier_counter(loop_candidate_frontiers.size(), 0);
   int size = loop_candidate_frontiers.size();
-  vector<vector<Eigen::Vector3d>> flow_back_frontier_log(size);
+  vector<vector<Eigen::Vector3d>> flow_back_frontier_log(size); // 记录每个fts相连的黑色顶点
   vector<FrontierPtr> frontiers(size);
   vector<int> pending_frontier_index;
   vector<int> collision_node_index_log;
 
-  // Count number of contact black vertices on each frontiers
+  // 1.Count number of contact black vertices on each frontiers
+  // 针对当前node的每一个黑色顶点，找出与黑色顶点发生碰撞的相邻node和对应的frontiers，
+  // 统计每一个相应的frontier上连接当前node黑色顶点的数量-->flow_back_frontier_log和frontiers
   for (VertexPtr v : node->black_vertices)
   {
     // only process vertices collide with other polyhedrons
@@ -1404,9 +1528,11 @@ void SkeletonFinder::findFlowBack(NodePtr node)
     frontiers.at(loop_ftr->index) = loop_ftr;
   }
 
-  // Sort decreasingly: flowback frontiers with more hits first
+  // 2.Sort decreasingly: flowback frontiers with more hits first
+  // 将 flow_back_frontier_log 的 frontier 排序 --> pending_frontier_index
   for (int i = 0; i < size; i++)
   {
+    // 筛除不满足要求的frontier
     if (flow_back_frontier_log.at(i).empty())
       continue;
     if ((int)flow_back_frontier_log.at(i).size() <
@@ -1419,6 +1545,9 @@ void SkeletonFinder::findFlowBack(NodePtr node)
           _min_flowback_creation_radius_threshold)
         continue;
     }
+
+    // 将满足条件的frontier索引按照黑色点数量多少进行降序排序，
+    // 将排序后的索引存储在 pending_frontier_index 中。
     if (pending_frontier_index.empty())
       pending_frontier_index.push_back(i);
     else
@@ -1439,9 +1568,11 @@ void SkeletonFinder::findFlowBack(NodePtr node)
     }
   }
 
-  // Start flowback
+  // 3.Start flowback
   int size_pending_frontier = pending_frontier_index.size();
   // ROS_ERROR("size_pending_frontier: %d", size_pending_frontier);
+
+  // 3.1 确定connected_node_pos
   vector<Eigen::Vector3d> connected_node_pos;
   if (node->seed_frontier->gate_node->connected_Node_ptr.empty())
   {
@@ -1457,13 +1588,16 @@ void SkeletonFinder::findFlowBack(NodePtr node)
       // ROS_INFO("gate node con nonempty: push_back a pos");
     }
   }
+
+  // 从facet最多的frontier遍历到facet最少的frontier
   for (int i = 0; i < size_pending_frontier; i++)
   {
     // ROS_ERROR("%d ,", pending_frontier_index.at(i));
     int ind = pending_frontier_index.at(i);
     FrontierPtr flowback_frontier = frontiers.at(ind);
 
-    // Unsafe loop: loop seg is not obstacle-free
+    // 3.2 Unsafe loop: loop seg is not obstacle-free
+    // 如果与当前选择的frontier连接的路径有障碍，就跳过当前frontier，找下一个
     Eigen::Vector3d end_pt_on_frontier;
     if (flowback_frontier->gate_node == NULL)
       end_pt_on_frontier = flowback_frontier->proj_center;
@@ -1477,7 +1611,8 @@ void SkeletonFinder::findFlowBack(NodePtr node)
       continue;
     }
 
-    // Bad loop: loop only contains 4 nodes
+    // 3.3 Bad loop: loop only contains 4 nodes
+    // 如果是 Bad loop 也处理下一个 frontier
     if (_bad_loop)
     {
       bool bad_loop = false;
@@ -1521,7 +1656,7 @@ void SkeletonFinder::findFlowBack(NodePtr node)
       }
     }
 
-    // Create flowback: new gate node if necessary
+    // 3.4 Create flowback: new gate node if necessary
     if (flowback_frontier->gate_node == NULL)
     {
       NodePtr new_gate =
@@ -1543,6 +1678,7 @@ void SkeletonFinder::findFlowBack(NodePtr node)
       // node->connected_Node_ptr.push_back(new_gate);
       // new_gate->connected_Node_ptr.push_back(node);
     }
+    // 处理回滚的门节点，重新构建该门节点
     else if (flowback_frontier->gate_node->rollbacked)
     {
       flowback_frontier->gate_node->rollbacked = false;
@@ -2060,6 +2196,12 @@ bool SkeletonFinder::isSamePos(Eigen::Vector3d pos1, Eigen::Vector3d pos2)
   return getDis(pos1, pos2) < 1e-4;
 }
 
+/**
+ * @brief 从节点（node）的中找到与给定方向（dire）匹配的黑色顶点和白色顶点
+ * @param node 给定节点
+ * @param dire
+ * @return VertexPtr
+ */
 VertexPtr SkeletonFinder::getVertexFromDire(NodePtr node,
                                             Eigen::Vector3d dire)
 {
@@ -2076,6 +2218,13 @@ VertexPtr SkeletonFinder::getVertexFromDire(NodePtr node,
   return NULL;
 }
 
+/**
+ * @brief 检查给定节点是否位于地面以上，并计算节点与地面之间的垂直距离。
+ *
+ * @param node 给定节点
+ * @return true
+ * @return false
+ */
 bool SkeletonFinder::checkFloor(NodePtr node)
 {
   Eigen::Vector3d downwards(0, 0, -1);
@@ -2085,19 +2234,24 @@ bool SkeletonFinder::checkFloor(NodePtr node)
   // ROS_ERROR("raycast result: (%f, %f, %f)", raycast_result.first(0),
   // raycast_result.first(1),
   //           raycast_result.first(2));
+
+  // 在距离_max_ray_length范围内未找到地面
   if (raycast_result.second == -2)
   {
     // ROS_INFO("Floor not found within max_ray_length");
     return false;
   }
+
+  // 在距离_max_ray_length范围内找到地面，记录射线与地面的交点坐标
   double floor_height = raycast_result.first(2);
 
-  // First node case
+  // First node case 对于第一个节点的情况
   if (node->seed_frontier == NULL)
   {
     node->dis_to_floor = floor_height;
     return true;
   }
+  // 对于不是第一个节点且不是门（isGate 为 false）的情况
   if (!node->isGate)
   {
     Eigen::Vector3d mid = (node->coord + node->seed_frontier->proj_center) / 2;
@@ -2135,6 +2289,12 @@ bool SkeletonFinder::checkFloor(NodePtr node)
   return true;
 }
 
+/**
+ * @brief 确定一个给定点 p 是否位于天花板（"ceil"）或地板（"floor"）上. 1: ceil；-1: floor； 0: none
+ *
+ * @param p 给定点
+ * @return int
+ */
 int SkeletonFinder::onCeilOrFloor(Eigen::Vector3d p)
 {
   // On ceil
@@ -2157,6 +2317,14 @@ bool SkeletonFinder::facetOnCeilOrFloor(FacetPtr f)
           onCeilOrFloor(f->vertices.at(2)->coord) == 1);
 }
 
+/**
+ * @brief 检查两个位置点之间的线段是否被遮挡，即线段上是否存在障碍物
+ *
+ * @param pos1 位置点1
+ * @param pos2 位置点2
+ * @return true
+ * @return false
+ */
 bool SkeletonFinder::checkSegClear(Eigen::Vector3d pos1, Eigen::Vector3d pos2)
 {
   double length = (pos2 - pos1).norm();
@@ -2181,6 +2349,12 @@ bool SkeletonFinder::checkSegClear(Eigen::Vector3d pos1, Eigen::Vector3d pos2)
   return true;
 }
 
+/**
+ * @brief 计算给定节点 curNodePtr 的节点半径：节点周围所有黑色点和白色点到节点中心的平均距离。
+ *
+ * @param curNodePtr 给定节点
+ * @return double
+ */
 double SkeletonFinder::getNodeRadius(NodePtr curNodePtr)
 {
   double node_radius = 0;
@@ -2198,6 +2372,12 @@ double SkeletonFinder::getNodeRadius(NodePtr curNodePtr)
   return node_radius;
 }
 
+/**
+ * @brief 计算一组三维顶点的几何中心，并计算这些顶点相对于几何中心的平均距离，以得到一个半径值
+ *
+ * @param vertices 指定顶一组顶点
+ * @return double
+ */
 double SkeletonFinder::getVerticesRadius(vector<Eigen::Vector3d> vertices)
 {
   Eigen::Vector3d center = Eigen::Vector3d::Zero();
@@ -2217,6 +2397,14 @@ double SkeletonFinder::getVerticesRadius(vector<Eigen::Vector3d> vertices)
   return radius;
 }
 
+/**
+ * @brief 检查给定的点 pt 是否位于指定 Frontier 对象内的任何一个面（Facet）上
+ *
+ * @param ftr_ptr 指定的 Frontier 对象
+ * @param pt 给定的点
+ * @return true
+ * @return false
+ */
 bool SkeletonFinder::checkPtOnFrontier(FrontierPtr ftr_ptr,
                                        Eigen::Vector3d pt)
 {
@@ -2232,6 +2420,14 @@ bool SkeletonFinder::checkPtOnFrontier(FrontierPtr ftr_ptr,
   return false;
 }
 
+/**
+ * @brief 检查给定的点 pt 是否位于三角形平面内.
+ *
+ * @param facet 三角形平面
+ * @param pt 给定的点
+ * @return true
+ * @return false
+ */
 bool SkeletonFinder::checkPtOnFacet(FacetPtr facet, Eigen::Vector3d pt)
 {
   // Take any point on the plane
@@ -2239,9 +2435,11 @@ bool SkeletonFinder::checkPtOnFacet(FacetPtr facet, Eigen::Vector3d pt)
   Eigen::Vector3d origin_to_pt = pt - origin;
   double dist_signed = origin_to_pt.dot(facet->outwards_unit_normal);
 
+  // fabs(dist_signed)太大，点 pt 和 facet 不在一个平面上
   if (fabs(dist_signed) >= 2 * _search_margin)
     return false;
 
+  // 判断 pt 是否在facet包围的范围内
   Eigen::Vector3d projected_pt = pt - dist_signed * facet->outwards_unit_normal;
   Eigen::Vector3d coord1 = facet->vertices.at(0)->coord;
   Eigen::Vector3d coord2 = facet->vertices.at(1)->coord;
@@ -2257,6 +2455,13 @@ bool SkeletonFinder::checkPtOnFacet(FacetPtr facet, Eigen::Vector3d pt)
     return false;
 }
 
+/**
+ * @brief 在给定的位置 pos 附近寻找与指定node索引 index 相关联的 Frontier 对象
+ *
+ * @param pos 给定的位置
+ * @param index 指定node索引
+ * @return FrontierPtr
+ */
 FrontierPtr SkeletonFinder::findFlowBackFrontier(Eigen::Vector3d pos,
                                                  int index)
 {
@@ -2284,12 +2489,24 @@ FacetPtr SkeletonFinder::findFlowBackFacet(Eigen::Vector3d pos, int index)
   return NULL;
 }
 
+/**
+ * @brief 检查给定的三维坐标是否在指定的地图范围边界框内
+ *
+ * @param pos 给定的三维坐标
+ * @return true
+ * @return false
+ */
 bool SkeletonFinder::checkWithinBbx(Eigen::Vector3d pos)
 {
   return pos(0) >= _x_min && pos(1) >= _y_min && pos(2) >= _z_min &&
          pos(0) <= _x_max && pos(1) <= _y_max && pos(2) <= _z_max;
 }
 
+/**
+ * @brief 向地图中添加边界框（bounding box）信息，如果是仿真，添加天花板和地板约束，反之只添加天花板约束.
+ *
+ * @param map 待添加包围盒信息的地图
+ */
 void SkeletonFinder::addBbxToMap(pcl::PointCloud<pcl::PointXYZ> &map)
 {
   double x_length = _x_max - _x_min;

@@ -106,8 +106,7 @@ private:
   int _min_flowback_creation_threshold;
   // A flowback will not be created if the radius of contact vertices is below this threshold
   double _min_flowback_creation_radius_threshold;
-  // A node will be discarded if its average vertex-center distance is below
-  // this threshold
+  // A node will be discarded if its average vertex-center distance is below this threshold
   double _min_node_radius;
   // A point on the ray will be considered as hit the pcl if:
   // the dist to its nearest point is below this margin
