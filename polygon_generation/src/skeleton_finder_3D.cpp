@@ -883,7 +883,7 @@ void SkeletonFinder::centralizeNodePos(NodePtr node)
 }
 
 /**
- * @brief 使用了 QuickHull 算法，该算法用于生成凸包(convex hull)，并根据生成的凸包提取多边形的方向
+ * @brief 使用了 QuickHull 算法，该算法用于生成凸包(convex hull)，并根据生成的凸包提取多边形的各个顶点
  *
  */
 void SkeletonFinder::identifyBwFacets()
@@ -917,6 +917,7 @@ void SkeletonFinder::identifyBwFacets()
 
 /**
  * @brief 标识节点（node）的各个面（facet）上的顶点之间的连接关系
+ *        根据在单位球上 quick hull 的结果，将每个顶点的连接关系映射到实际的黑白节点中，
  *
  * @param node 给定节点
  */
@@ -991,7 +992,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
   }
 
   // 2.Filter black vertices
-  // 遍历每一 group 的黑色顶点，
+  // 遍历每一 group 的黑色顶点
   int num_groups = bv_groups.size();
   for (int i = 0; i < num_groups; i++)
   {
@@ -1005,7 +1006,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
     mean_length /= bv_groups.at(i).size();
     tolerance = mean_length * 0.3;
 
-    // 2.2 根据黑色顶点到中心的距离，标记一组黑色顶点中的最远和最近的黑色顶点，并将它们的类型设置为灰色 (GREY)，
+    // 2.2 根据黑色顶点到中心的距离，标记一组黑色顶点中不位于天花板和地面的最远和最近的黑色顶点，并将它们的类型设置为灰色顶点 (GREY)，
     // 同时取消它们的 critical 属性，去除噪声点？
     int longest_index = -1;
     int shortest_index = -1;
@@ -1047,7 +1048,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
   }
 
   // 3.Inflate critical black vertices
-  // 对于每组黑色顶点，它将每个黑色顶点连接的黑色顶点都标记为临界（critical）顶点。
+  // 做一下critical black vertices的膨胀操作，对于每组黑色顶点，它将每个黑色顶点所连接的邻近黑色顶点都标记为 critical。
   for (int i = 0; i < num_groups; i++)
   {
     for (VertexPtr v : bv_groups.at(i))
@@ -1061,6 +1062,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
   }
 
   // 4.Mesh1 is for only black polygon --> node->facets
+  // 提取所有的不在ceil 或 floor的黑点，以及在ceil或floor上并且是critical的黑点
   vector<vec3> bv_for_mesh;
   for (VertexPtr bv : node->black_vertices)
   {
@@ -1072,6 +1074,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
     bv->critical = true;
   }
 
+  // 根据提取的黑点构造 node->facets
   quickhull::QuickHull<double> qh;
   quickhull::HalfEdgeMesh<double, size_t> mesh1 =
       qh.getConvexHullAsMesh(&(bv_for_mesh)[0].x, (bv_for_mesh).size(), true);
@@ -1102,6 +1105,7 @@ void SkeletonFinder::identifyFrontiers(NodePtr node)
   // ROS_ERROR("identifyFacets: %d", node->facets.size());
 
   // 5.Calculate outwards normal for each facet
+  // 计算每个面的由多面体内部指向外部的法向量
   int num_facet = node->facets.size();
   for (int i = 0; i < num_facet; i++)
   {
@@ -1433,6 +1437,13 @@ void SkeletonFinder::findNbhdFacets(vector<FacetPtr> facets)
   }
 }
 
+/**
+ * @brief 从给定 node 和它的一组顶点 group_bv 中找到与这些顶点相关联的多边形面（facets）
+ *
+ * @param node
+ * @param group_bv
+ * @return vector<FacetPtr> group_facets
+ */
 vector<FacetPtr>
 SkeletonFinder::findGroupFacetsFromVertices(NodePtr node,
                                             vector<VertexPtr> group_bv)
@@ -1464,6 +1475,7 @@ SkeletonFinder::findGroupFacetsFromVertices(NodePtr node,
       //   num_bv_included++;
       // }
     }
+
     // All of the three vertices are included in the group_bv
     if (good)
     {
@@ -1803,6 +1815,14 @@ bool SkeletonFinder::initFrontier(FrontierPtr frontier)
   return proj_center_found;
 }
 
+/**
+ * @brief （TODO）检查一个三维点 pt 是否位于 node 对应的多面体（polyhedron）内部
+ *
+ * @param node
+ * @param pt
+ * @return true
+ * @return false
+ */
 bool SkeletonFinder::checkPtInPolyhedron(NodePtr node, Eigen::Vector3d pt)
 {
   int intersection_count = 0;
@@ -2197,7 +2217,7 @@ bool SkeletonFinder::isSamePos(Eigen::Vector3d pos1, Eigen::Vector3d pos2)
 }
 
 /**
- * @brief 从节点（node）的中找到与给定方向（dire）匹配的黑色顶点和白色顶点
+ * @brief 从节点（node）的中找到与给定方向（dire）匹配的黑色顶点或白色顶点
  * @param node 给定节点
  * @param dire
  * @return VertexPtr
